@@ -29,8 +29,8 @@ jobs:
           version: "0.12.24"
           enable-cache: true
       - run: uv sync
-      - run: uv run ruff check src tests
-      - run: uv run ruff format --check src tests
+      - run: uv run ruff check src tests scripts
+      - run: uv run ruff format --check src tests scripts
       - run: uv run mypy
 
   unit:

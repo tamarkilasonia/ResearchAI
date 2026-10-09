@@ -46,14 +46,18 @@ select = [
     "E", "W", "F", "I", "B", "UP", "N", "S", "SIM", "RUF", "PT", "ASYNC", "C4", "PTH", "RET",
 ]
 
+[tool.ruff.lint.isort]
+known-first-party = ["researchai", "tests", "scripts"]
+
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S105", "S106"]
+"scripts/**" = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
-files = ["src", "tests"]
+files = ["src", "tests", "scripts"]
 mypy_path = "src"
 
 [[tool.mypy.overrides]]

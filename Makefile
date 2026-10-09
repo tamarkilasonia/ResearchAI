@@ -8,12 +8,12 @@ install: ## Create .venv with all dependency groups
 	uv sync --frozen
 
 lint: ## ruff lint + format check
-	uv run ruff check src tests
-	uv run ruff format --check src tests
+	uv run ruff check src tests scripts
+	uv run ruff format --check src tests scripts
 
 format: ## Apply ruff formatting and safe fixes
-	uv run ruff format src tests
-	uv run ruff check --fix src tests
+	uv run ruff format src tests scripts
+	uv run ruff check --fix src tests scripts
 
 typecheck: ## mypy --strict
 	uv run mypy
