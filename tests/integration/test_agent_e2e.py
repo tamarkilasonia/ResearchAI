@@ -61,3 +61,28 @@ async def test_question_outside_the_corpus_abstains(mcp_url: str) -> None:
     assert status is RunStatus.ABSTAINED
     assert docs == []
     assert "Insufficient evidence" in markdown
+
+
+async def test_superseded_registry_counts_are_flagged_on_the_real_corpus(mcp_url: str) -> None:
+    async with ResearchTools(mcp_url) as tools:
+        result = await ResearchAgent(tools=tools, llm=None, settings=make_settings()).run(
+            "How many public charging points are listed in the charging registry?"
+        )
+    assert result.status is RunStatus.ANSWERED
+    outdated = [c for c in result.conflicts if c.kind == "outdated"]
+    assert outdated, [c.summary for c in result.conflicts]
+    claims = {c.id: c for c in result.claims}
+    for conflict in outdated:
+        newest = max(claims[i].published for i in conflict.current)
+        assert all(claims[i].published < newest for i in conflict.others)
+    assert result.report is not None
+    assert any(s.kind == "conflict" for s in result.report.sentences())
+
+
+async def test_unknown_place_abstains_on_the_real_corpus(mcp_url: str) -> None:
+    async with ResearchTools(mcp_url) as tools:
+        result = await ResearchAgent(tools=tools, llm=None, settings=make_settings()).run(
+            "What is the price of a Tesla Model S in Japan?"
+        )
+    assert result.status is RunStatus.ABSTAINED
+    assert result.missing_entities == ["Japan"]

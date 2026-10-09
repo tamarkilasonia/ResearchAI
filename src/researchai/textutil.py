@@ -30,6 +30,16 @@ STOP_WORDS = frozenset(
     }
 )  # fmt: skip
 
+# Words shared by most statements in this corpus; they say nothing about whether
+# two statements concern the same quantity ("car", "electric", "Georgia", "year").
+DOMAIN_COMMON = frozenset(
+    {
+        "electric", "car", "vehicl", "vehicle", "georgia", "georgian", "year", "month", "typical",
+        "typically", "about", "around", "average", "also", "mid", "end", "first", "last", "report",
+        "according", "passeng", "passenger", "market", "ელექტრომობილ", "საქართველო", "წლი",
+    }
+)  # fmt: skip
+
 # Longest first. English inflections, and Georgian plural/case endings
 # (plural -ებ-, genitive -ის, dative -ს, instrumental -ით, adverbial -ად,
 # postpositions -ში/-ზე/-თვის/-გან, nominative -ი and stem vowels).
