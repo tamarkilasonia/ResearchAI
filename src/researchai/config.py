@@ -73,6 +73,17 @@ class Settings(BaseSettings):
     llm_api_key: SecretStr = SecretStr("")
     llm_timeout_seconds: float = Field(default=120.0, gt=0, le=600)
     judge_model: str = "llama3.1:8b"
+    llm_context_tokens: int = Field(default=16_384, ge=1024, le=1_000_000)
+    llm_max_output_tokens: int = Field(default=2048, ge=128, le=32_768)
+    llm_seed: int = 42
+
+    # --- agent budgets (per research run) ---
+    max_searches: int = Field(default=12, ge=1, le=100)
+    max_iterations: int = Field(default=2, ge=1, le=5)
+    max_tokens_per_run: int = Field(default=40_000, ge=1000, le=1_000_000)
+    max_subquestions: int = Field(default=6, ge=1, le=10)
+    hits_per_subquestion: int = Field(default=4, ge=1, le=10)
+    run_timeout_seconds: float = Field(default=300.0, gt=0, le=3600)
 
     # --- embeddings ---
     embedding_provider: EmbeddingProvider = EmbeddingProvider.HASH
