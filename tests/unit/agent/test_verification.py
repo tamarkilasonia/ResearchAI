@@ -151,3 +151,71 @@ def test_writer_prompt_lists_conflicts_quality_and_missing_names() -> None:
 
 def test_source_type_fixture() -> None:
     assert NEW.source_type is SourceType.GOVERNMENT
+
+
+def test_llm_claims_citing_only_superseded_values_are_dropped() -> None:
+    from researchai.agent.models import Citation
+    from researchai.agent.verification import drop_superseded_claims
+
+    old_claim = next(c for c in CLAIMS if c.doc_id == "ev-en-0014")
+    new_claim = next(c for c in CLAIMS if c.doc_id == "ev-en-0013")
+
+    def cite(claim_doc: str, start: int, end: int) -> Citation:
+        return Citation(evidence_id="E1", doc_id=claim_doc, chunk_id=f"{claim_doc}#c0",
+                        quote="q", char_start=start, char_end=end)  # fmt: skip
+
+    old_span = cite("ev-en-0014", old_claim.char_start, old_claim.char_end)
+    stale = ReportSentence(text="There are 385 points.", kind="claim", citations=[old_span])
+    mixed = ReportSentence(text="512 now, 385 before.", kind="claim", citations=[
+        cite("ev-en-0014", old_claim.char_start, old_claim.char_end),
+        cite("ev-en-0013", new_claim.char_start, new_claim.char_end)])  # fmt: skip
+    unanchored = ReportSentence(
+        text="Paraphrase.", kind="claim",
+        citations=[Citation(evidence_id="E2", doc_id="ev-en-0014", chunk_id="c", quote="q")],
+    )  # fmt: skip
+    report = _report([stale, mixed, unanchored])
+    cleaned, dropped = drop_superseded_claims(report, FINDINGS)
+    assert dropped == 1
+    assert [s.text for s in cleaned.sections[0].sentences] == [
+        "512 now, 385 before.",
+        "Paraphrase.",
+    ]
+    assert drop_superseded_claims(report, Findings()) == (report, 0)
+
+
+def test_irrelevant_conflicts_stay_out_of_the_report() -> None:
+    unrelated = Findings(
+        claims=FINDINGS.claims,
+        conflicts=FINDINGS.conflicts,
+        relevance_terms=(("sq1", frozenset({"vat", "import", "exempt"})),),
+    )
+    assert unrelated.reportable_conflicts() == []
+    assert unrelated.conflicts_for("sq1") == []
+    _, added = ensure_conflicts_reported(_report([]), unrelated, EVIDENCE)
+    assert added == 0
+    related = Findings(
+        claims=FINDINGS.claims,
+        conflicts=FINDINGS.conflicts,
+        relevance_terms=(("sq1", frozenset({"public", "charg", "point"})),),
+    )
+    assert related.reportable_conflicts() == list(FINDINGS.conflicts)
+
+
+def test_a_section_left_with_only_superseded_claims_says_insufficient() -> None:
+    from researchai.agent.models import Citation
+    from researchai.agent.verification import drop_superseded_claims
+
+    old_claim = next(c for c in CLAIMS if c.doc_id == "ev-en-0014")
+    stale = ReportSentence(
+        text="There are 385 points.",
+        kind="claim",
+        citations=[
+            Citation(evidence_id="E2", doc_id="ev-en-0014", chunk_id="c", quote="q",
+                     char_start=old_claim.char_start, char_end=old_claim.char_end)
+        ],
+    )  # fmt: skip
+    cleaned, dropped = drop_superseded_claims(_report([stale]), FINDINGS)
+    assert dropped == 1
+    (sentence,) = cleaned.sections[0].sentences
+    assert sentence.kind == "insufficient_evidence"
+    assert cleaned.insufficient == ["sq1"]

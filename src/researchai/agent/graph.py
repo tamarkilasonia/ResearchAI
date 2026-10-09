@@ -64,6 +64,7 @@ from researchai.agent.synthesis import (
 from researchai.agent.verification import Findings
 from researchai.corpus.models import Topic
 from researchai.mcp_client.client import ToolCallError
+from researchai.textutil import keyword_terms
 from researchai.tools.errors import ErrorCode
 from researchai.tools.schemas import (
     MAX_METADATA_IDS,
@@ -459,12 +460,18 @@ async def analyze(state: ResearchState, *, runtime: Runtime[AgentContext]) -> di
 
 
 def findings_of(state: ResearchState) -> Findings:
+    question_terms = keyword_terms(state["question"])
+    relevance = tuple(
+        (sq.id, frozenset(keyword_terms(" ".join([*question_terms, sq.text, *sq.queries]))))
+        for sq in state["plan"].sub_questions
+    )
     return Findings(
         assessments=tuple(state.get("assessments", [])),
         claims=tuple(state.get("claims", [])),
         conflicts=tuple(state.get("conflicts", [])),
         verdicts=tuple(state.get("verdicts", [])),
         missing_entities=tuple(state.get("missing_entities", [])),
+        relevance_terms=relevance,
     )
 
 
