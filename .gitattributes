@@ -1,0 +1,2 @@
+# Corpus offsets (chunk and citation spans) assume LF line endings.
+corpus/** text eol=lf

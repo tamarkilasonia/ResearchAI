@@ -29,15 +29,17 @@ jobs:
           version: "0.12.24"
           enable-cache: true
       - run: uv sync
-      - run: uv run ruff check src tests
-      - run: uv run ruff format --check src tests
+      - run: uv run ruff check src tests scripts
+      - run: uv run ruff format --check src tests scripts
       - run: uv run mypy
 
   unit:
-    name: unit tests + coverage gate
+    name: unit tests
     needs: lint
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      COVERAGE_FILE: .coverage.unit
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.2.0
@@ -45,11 +47,70 @@ jobs:
           version: "0.12.24"
           enable-cache: true
       - run: uv sync
-      - run: uv run pytest --cov --cov-report=term-missing
+      - run: uv run pytest --cov --cov-fail-under=0
+      - uses: actions/upload-artifact@v7
+        with:
+          name: coverage-unit
+          path: .coverage.unit
+          include-hidden-files: true
+          retention-days: 1
+
+  integration:
+    name: integration tests (PostgreSQL + pgvector)
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: researchai
+          POSTGRES_PASSWORD: researchai
+          POSTGRES_DB: researchai
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U researchai" --health-interval 5s
+          --health-timeout 3s --health-retries 20
+    env:
+      COVERAGE_FILE: .coverage.integration
+      DATABASE_URL: postgresql+asyncpg://researchai:researchai@localhost:5432/researchai
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: "0.12.24"
+          enable-cache: true
+      - run: uv sync
+      - run: uv run pytest -m integration --cov --cov-fail-under=0
+      - uses: actions/upload-artifact@v7
+        with:
+          name: coverage-integration
+          path: .coverage.integration
+          include-hidden-files: true
+          retention-days: 1
+
+  coverage:
+    name: coverage gate (95%)
+    needs: [unit, integration]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: "0.12.24"
+          enable-cache: true
+      - run: uv sync
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: coverage-*
+          merge-multiple: true
+      - run: uv run coverage combine .coverage.unit .coverage.integration
+      - run: uv run coverage report
 
   docker:
     name: docker build
-    needs: unit
+    needs: coverage
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

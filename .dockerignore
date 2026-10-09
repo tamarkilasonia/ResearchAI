@@ -14,5 +14,3 @@ runs
 .env.*
 tests
 docs
-*.md
-!README.md

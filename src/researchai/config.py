@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import Field, SecretStr, field_validator
@@ -76,7 +77,12 @@ class Settings(BaseSettings):
     # --- embeddings ---
     embedding_provider: EmbeddingProvider = EmbeddingProvider.HASH
     embedding_model: str = "bge-m3"
+    embedding_base_url: str = "http://localhost:11434/v1"
     embedding_dim: int = Field(default=1024, ge=8, le=4096)
+    embedding_batch_size: int = Field(default=32, ge=1, le=256)
+
+    # --- corpus ---
+    corpus_dir: Path = Path("corpus")
 
     # --- storage ---
     database_url: str = "postgresql+asyncpg://researchai:researchai@localhost:5434/researchai"
@@ -88,11 +94,11 @@ class Settings(BaseSettings):
             raise ValueError("DATABASE_URL must use the postgresql+asyncpg:// scheme")
         return value
 
-    @field_validator("llm_base_url")
+    @field_validator("llm_base_url", "embedding_base_url")
     @classmethod
     def _http_url(cls, value: str) -> str:
         if not value.startswith(("http://", "https://")):
-            raise ValueError("LLM_BASE_URL must be an http(s) URL")
+            raise ValueError("base URLs must be http(s) URLs")
         return value.rstrip("/")
 
     @property
