@@ -78,3 +78,14 @@ def test_agent_side_never_imports_data_access(path: Path) -> None:
 )
 def test_rule_matching(name: str, expected: bool) -> None:
     assert _violates(name) is expected
+
+
+def test_no_langchain_anywhere() -> None:
+    """LangGraph pulls langchain-core in transitively; the project must not use it."""
+    offenders = sorted(
+        _module_name(path)
+        for path in SRC.rglob("*.py")
+        if any(name.split(".")[0] in {"langchain", "langchain_core", "langchain_community"}
+               for name in _imports(path))
+    )  # fmt: skip
+    assert not offenders, offenders
