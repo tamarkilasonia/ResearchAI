@@ -181,6 +181,8 @@ class Citation(_Model):
 
 
 SentenceKind = Literal["claim", "recommendation", "insufficient_evidence", "conflict", "note"]
+# How a kept sentence is supported by its citations (set by the citation verifier).
+SupportLevel = Literal["verbatim", "supported", "partial"]
 
 
 class ReportSentence(_Model):
@@ -188,6 +190,7 @@ class ReportSentence(_Model):
     kind: SentenceKind
     citations: list[Citation] = Field(default_factory=list)
     calculation_ids: list[str] = Field(default_factory=list)
+    support: SupportLevel | None = None
 
     @model_validator(mode="after")
     def _claims_cite(self) -> Self:
@@ -217,6 +220,47 @@ class Report(_Model):
 
     def citations(self) -> list[Citation]:
         return [c for sentence in self.sentences() for c in sentence.citations]
+
+
+CitationStatus = Literal["verified", "unanchored", "span_mismatch", "missing_document"]
+SentenceStatus = Literal["verbatim", "supported", "partial", "unsupported", "misattributed"]
+
+
+class CitationCheck(_Model):
+    evidence_id: str
+    doc_id: str
+    status: CitationStatus
+
+
+class SentenceCheck(_Model):
+    text: str
+    kind: SentenceKind
+    sub_question_id: str | None
+    status: SentenceStatus
+    method: Literal["deterministic", "llm", "lexical"]
+    reason: str
+    citations: list[CitationCheck] = Field(default_factory=list)
+
+
+class CitationReport(_Model):
+    """Per-report citation verification (deterministic first, then entailment)."""
+
+    sentences_checked: int
+    citations_total: int
+    citations_verified: int = Field(description="Cited span re-fetched and equal to the quote")
+    precision: float = Field(
+        ge=0,
+        le=1,
+        description="Share of citations whose span is verified AND supports the sentence",
+    )
+    verbatim: int
+    supported: int
+    partial: int
+    unsupported: int
+    misattributed: int
+    entailment: Literal["llm", "lexical", "none"]
+    removed: list[SentenceCheck] = Field(default_factory=list)
+    flagged: list[SentenceCheck] = Field(default_factory=list)
 
 
 class TraceEvent(_Model):
@@ -261,6 +305,7 @@ class ResearchResult(_Model):
     missing_entities: list[str] = Field(default_factory=list)
     calculations: list[Calculation] = Field(default_factory=list)
     report: Report | None = None
+    citation_report: CitationReport | None = None
     reason: str | None = Field(default=None, description="Why a run was rejected or failed")
     trace: list[TraceEvent] = Field(default_factory=list)
     tool_calls: list[ToolCall] = Field(default_factory=list)
