@@ -81,6 +81,80 @@ class Evidence(_Model):
     score: float
 
 
+SourceFlag = Literal["low_reliability", "stale", "user_generated"]
+ConflictKind = Literal["outdated", "contradiction"]
+
+
+class SourceAssessment(_Model):
+    """How much to trust a source, decided by rules (source type and age)."""
+
+    doc_id: str
+    source_type: SourceType
+    published: date
+    age_days: int
+    reliability: float = Field(ge=0, le=1)
+    freshness: float = Field(ge=0, le=1)
+    flags: list[SourceFlag] = Field(default_factory=list)
+
+
+class NumericFact(_Model):
+    value: float
+    high: float | None = Field(default=None, description="Upper bound when the text gives a range")
+    unit: str | None
+    as_of_year: int
+    as_of_month: int | None
+    char_start: int
+    char_end: int
+    subject: list[str] = Field(default_factory=list, description="Content terms of its clause")
+    labels: list[str] = Field(
+        default_factory=list,
+        description="Threshold/range numbers qualifying the fact ('101' in 'up to 101 kWh')",
+    )
+
+    @property
+    def period(self) -> tuple[int, int]:
+        return (self.as_of_year, self.as_of_month or 0)
+
+
+class Claim(_Model):
+    """One sentence of evidence stating something checkable (numbers, or an LLM-flagged fact)."""
+
+    id: str = Field(pattern=r"^K\d+$")
+    evidence_id: str
+    sub_question_id: str
+    doc_id: str
+    text: str
+    char_start: int
+    char_end: int
+    facts: list[NumericFact] = Field(default_factory=list)
+    subject: list[str] = Field(default_factory=list)
+    published: date
+    reliability: float = Field(ge=0, le=1)
+
+
+class Conflict(_Model):
+    """Sources that disagree about the same quantity or fact.
+
+    ``outdated``: an older value superseded by a newer source (``current`` holds
+    the newest claims). ``contradiction``: sources from the same period disagree.
+    """
+
+    id: str = Field(pattern=r"^X\d+$")
+    kind: ConflictKind
+    current: list[str] = Field(min_length=1, description="Claim ids of the newest value(s)")
+    others: list[str] = Field(min_length=1, description="Claim ids that disagree with them")
+    unit: str | None = None
+    detected_by: Literal["rules", "llm"]
+    summary: str
+
+
+class SufficiencyVerdict(_Model):
+    sub_question_id: str
+    sufficient: bool
+    relevant_evidence: list[str] = Field(default_factory=list)
+    reason: str
+
+
 class Calculation(_Model):
     """Arithmetic run through the MCP ``calculate`` tool on numbers from evidence."""
 
@@ -180,6 +254,11 @@ class ResearchResult(_Model):
     profile: QuestionProfile | None = None
     plan: ResearchPlan | None = None
     evidence: list[Evidence] = Field(default_factory=list)
+    assessments: list[SourceAssessment] = Field(default_factory=list)
+    claims: list[Claim] = Field(default_factory=list)
+    conflicts: list[Conflict] = Field(default_factory=list)
+    sufficiency: list[SufficiencyVerdict] = Field(default_factory=list)
+    missing_entities: list[str] = Field(default_factory=list)
     calculations: list[Calculation] = Field(default_factory=list)
     report: Report | None = None
     reason: str | None = Field(default=None, description="Why a run was rejected or failed")
