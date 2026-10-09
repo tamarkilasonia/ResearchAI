@@ -15,6 +15,7 @@ from researchai.tools.calculator import evaluate
 from researchai.tools.errors import ErrorCode
 from researchai.tools.schemas import (
     CalculationResponse,
+    DocumentResponse,
     MetadataResponse,
     SearchHit,
     SearchMode,
@@ -85,6 +86,7 @@ class FakeTools:
     fail_with: ErrorCode | None = None
     metadata_error: ErrorCode | None = None
     keyword_error: ErrorCode | None = None
+    fetch_error: ErrorCode | None = None
     calls: list[ToolCallRecord] = field(default_factory=list)
     topics: list[Topic | None] = field(default_factory=list)
 
@@ -141,6 +143,43 @@ class FakeTools:
                 if d in known
             ],
             missing=[d for d in doc_ids if d not in known],
+        )
+
+    def bodies(self) -> dict[str, str]:
+        """Documents rebuilt from their passages, at the passages' real offsets."""
+        width: dict[str, int] = {}
+        for h in self.corpus:
+            width[h.doc_id] = max(width.get(h.doc_id, 0), h.char_end)
+        chars = {doc: [" "] * size for doc, size in width.items()}
+        for h in self.corpus:
+            chars[h.doc_id][h.char_start : h.char_end] = list(h.text)
+        return {doc: "".join(c) for doc, c in chars.items()}
+
+    async def fetch_document(
+        self, doc_id: str, *, start: int | None = None, end: int | None = None
+    ) -> DocumentResponse:
+        self.calls.append(ToolCallRecord("fetch_document", {"doc_id": doc_id}, True, None, 1.0))
+        if self.fetch_error is not None:
+            raise ToolCallError("fetch_document", self.fetch_error, "fake failure")
+        bodies = self.bodies()
+        if doc_id not in bodies:
+            raise ToolCallError("fetch_document", ErrorCode.NOT_FOUND, f"no document {doc_id}")
+        body = bodies[doc_id]
+        first = next(h for h in self.corpus if h.doc_id == doc_id)
+        meta = SourceMetadata(
+            doc_id=doc_id,
+            title=first.title,
+            url=f"https://x.invalid/{doc_id}",
+            publisher=first.publisher,
+            source_type=first.source_type,
+            published=first.published,
+            snapshot=date(2026, 9, 1),
+            language=first.language,
+            topic=first.topic,
+            synthetic=True,
+        )
+        return DocumentResponse(
+            metadata=meta, text=body, char_start=0, char_end=len(body), length=len(body)
         )
 
     async def calculate(self, expression: str) -> CalculationResponse:

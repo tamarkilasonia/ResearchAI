@@ -37,7 +37,9 @@ async def test_offline_run_answers_with_cited_claims() -> None:
     assert tools.topics[0] is Topic.EV  # round 0 uses the detected topic as a filter
     nodes = [event.node for event in result.trace]
     assert nodes[:4] == ["validate_input", "input_guard", "profile", "planner"]
-    assert nodes[-3:] == ["analyze", "synthesize", "finalize"]
+    assert nodes[-4:] == ["analyze", "synthesize", "verify_citations", "finalize"]
+    assert result.citation_report is not None
+    assert result.citation_report.precision == 1.0
     assert result.usage.searches == sum(c.tool == "search_corpus" for c in result.tool_calls) > 0
     assert any(c.tool == "get_source_metadata" for c in result.tool_calls)
     assert result.usage.llm_calls == 0
@@ -408,3 +410,10 @@ async def test_llm_report_names_missing_entities_first() -> None:
     assert result.report is not None
     assert result.report.generated_by == "llm"
     assert "Japan" in result.report.summary[0].text
+
+
+async def test_unverifiable_citations_fail_the_run() -> None:
+    result = await agent(FakeTools(fetch_error=ErrorCode.INTERNAL)).run(CHARGING_Q)
+    assert result.status is RunStatus.FAILED
+    assert result.report is None
+    assert result.citation_report is None

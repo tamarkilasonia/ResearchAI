@@ -4,12 +4,13 @@
       -> search_worker x N (parallel)  <------------------------------+
       -> collect -> assess_sources -> extract_claims -> check_sufficiency
            (insufficient sub-questions, budget left: follow-up round) -+
-      -> detect_conflicts -> analyze -> synthesize -> finalize
+      -> detect_conflicts -> analyze -> synthesize -> verify_citations -> finalize
 
 Rules first, LLM where rules are unsure: source assessment, claim extraction
 and sufficiency are rules; conflict detection is rules plus an optional LLM
-pass for disagreements without numbers. Phase 6 adds citation verification
-between synthesize and finalize.
+pass for disagreements without numbers. ``verify_citations`` re-checks every
+cited span through MCP, the numbers in each sentence, and (for paraphrases)
+entailment, removing unsupported and misattributed sentences.
 
 Nodes reach data only through the MCP client in the runtime context.
 Infrastructure failures (index not ready, backend down) end the run as
@@ -34,11 +35,13 @@ from researchai.agent.analysis import run_calculations
 from researchai.agent.assess import assess_sources as assess_rules
 from researchai.agent.assess import rerank
 from researchai.agent.budget import BudgetExceeded, RunBudget
+from researchai.agent.citations import verify_report
 from researchai.agent.claims import extract_claims as extract_rules
 from researchai.agent.conflicts import llm_conflicts, rule_conflicts
 from researchai.agent.llm import LLMClient, LLMError
 from researchai.agent.models import (
     Calculation,
+    CitationReport,
     Claim,
     Conflict,
     Evidence,
@@ -69,6 +72,7 @@ from researchai.tools.errors import ErrorCode
 from researchai.tools.schemas import (
     MAX_METADATA_IDS,
     CalculationResponse,
+    DocumentResponse,
     MetadataResponse,
     SearchHit,
     SearchMode,
@@ -96,6 +100,10 @@ class AgentTools(Protocol):
     ) -> SearchResponse: ...
 
     async def get_source_metadata(self, doc_ids: list[str]) -> MetadataResponse: ...
+
+    async def fetch_document(
+        self, doc_id: str, *, start: int | None = None, end: int | None = None
+    ) -> DocumentResponse: ...
 
     async def calculate(self, expression: str) -> CalculationResponse: ...
 
@@ -126,6 +134,7 @@ class ResearchState(TypedDict, total=False):
     conflicts: list[Conflict]
     calculations: list[Calculation]
     report: Report
+    citation_report: CitationReport
     trace: Annotated[list[TraceEvent], operator.add]
 
 
@@ -520,6 +529,41 @@ async def synthesize(state: ResearchState, *, runtime: Runtime[AgentContext]) ->
     return {"report": report, "_detail": {"generated_by": "rules", **detail}}
 
 
+async def verify_citations(
+    state: ResearchState, *, runtime: Runtime[AgentContext]
+) -> dict[str, Any]:
+    ctx = runtime.context
+    report = state.get("report")
+    if report is None or not any(s.citations for s in report.sentences()):
+        return {"_detail": {"skipped": True}}
+    try:
+        cleaned, summary = await verify_report(
+            report,
+            state.get("evidence", []),
+            state.get("calculations", []),
+            state["question"],
+            tools=ctx.tools,
+            llm=ctx.llm,
+            budget=ctx.budget,
+            max_output_tokens=ctx.max_output_tokens,
+        )
+    except ToolCallError as exc:
+        # Unverifiable citations must not reach the user: no report instead.
+        raise _fatal(exc) from exc
+    return {
+        "report": cleaned,
+        "citation_report": summary,
+        "_detail": {
+            "precision": summary.precision,
+            "citations": summary.citations_total,
+            "verified_spans": summary.citations_verified,
+            "removed": len(summary.removed),
+            "flagged": len(summary.flagged),
+            "entailment": summary.entailment,
+        },
+    }
+
+
 async def finalize(state: ResearchState, *, runtime: Runtime[AgentContext]) -> dict[str, Any]:
     if state.get("status") is RunStatus.REJECTED:
         return {"_detail": {"status": "rejected"}}
@@ -547,6 +591,7 @@ def build_graph() -> CompiledStateGraph[ResearchState, AgentContext, ResearchSta
     graph.add_node("detect_conflicts", traced("detect_conflicts", detect_conflicts))
     graph.add_node("analyze", traced("analyze", analyze))
     graph.add_node("synthesize", traced("synthesize", synthesize))
+    graph.add_node("verify_citations", traced("verify_citations", verify_citations))
     graph.add_node("finalize", traced("finalize", finalize))
 
     graph.add_edge(START, "validate_input")
@@ -565,6 +610,7 @@ def build_graph() -> CompiledStateGraph[ResearchState, AgentContext, ResearchSta
     )
     graph.add_edge("detect_conflicts", "analyze")
     graph.add_edge("analyze", "synthesize")
-    graph.add_edge("synthesize", "finalize")
+    graph.add_edge("synthesize", "verify_citations")
+    graph.add_edge("verify_citations", "finalize")
     graph.add_edge("finalize", END)
     return graph.compile()
