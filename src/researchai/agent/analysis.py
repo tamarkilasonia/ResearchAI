@@ -84,6 +84,8 @@ def operands(expression: str) -> list[float]:
         tree = ast.parse(expression, mode="eval")
     except SyntaxError as exc:
         raise LLMError("schema", f"not arithmetic: {expression!r}") from exc
+    if not any(isinstance(node, ast.BinOp) for node in ast.walk(tree)):
+        raise LLMError("schema", f"no arithmetic in {expression!r}")
     numbers: list[float] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Constant):
