@@ -68,7 +68,13 @@ def evidence_block(item: Evidence) -> str:
 
 
 def planner_user(question: str, profile: QuestionProfile) -> str:
-    topics = sorted({f"{a.topic.value}: {a.key}" for a in ASPECTS})
+    # Only the detected topic's aspects: listing both topics made the planner add
+    # unrelated sub-questions (a tax section for an EV question) in smoke runs.
+    topics = sorted(
+        f"{a.topic.value}: {a.key}"
+        for a in ASPECTS
+        if profile.topic is None or a.topic is profile.topic
+    )
     hint = {
         "language": profile.language.value,
         "topic": profile.topic.value if profile.topic else None,

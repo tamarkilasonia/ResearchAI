@@ -172,3 +172,16 @@ async def test_make_plan_fits_the_remaining_search_budget() -> None:
 
 def test_topic_enum_values() -> None:
     assert Topic("ev") is Topic.EV
+
+
+def test_planner_prompt_lists_only_the_detected_topics_aspects() -> None:
+    from researchai.agent.prompts import planner_user
+
+    ev = planner_user("Compare electric cars", profile_question("Compare electric cars"))
+    assert "ev: charging" in ev
+    assert "tax:" not in ev
+    unknown = planner_user(
+        "What is the capital of France?", profile_question("What is the capital of France?")
+    )
+    assert "tax: vat" in unknown
+    assert "ev: charging" in unknown
