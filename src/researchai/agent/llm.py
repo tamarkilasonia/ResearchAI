@@ -113,7 +113,10 @@ class OpenAICompatibleLLM:
             content = choice["message"]["content"] or ""
             usage = body.get("usage") or {}
         except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
-            raise LLMError("transport", f"chat completion failed: {exc}") from exc
+            # str(ReadTimeout()) is empty, so always name the exception type.
+            raise LLMError(
+                "transport", f"chat completion failed: {type(exc).__name__}: {exc}"
+            ) from exc
         if choice.get("finish_reason") == "length":
             raise LLMError("truncated", f"output hit max_tokens={max_tokens}")
         return Completion(

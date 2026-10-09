@@ -141,3 +141,11 @@ async def test_structured_call_respects_token_budget() -> None:
             llm, budget(1000), system="s", user="u", schema=Answer, max_tokens=1000
         )
     assert llm.requests == []
+
+
+async def test_timeouts_are_named_in_the_error() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("", request=request)
+
+    with pytest.raises(LLMError, match="ReadTimeout"):
+        await client(handler).chat([], schema={}, max_tokens=5)

@@ -71,7 +71,7 @@ class Settings(BaseSettings):
     llm_base_url: str = "http://localhost:11434/v1"
     llm_model: str = "qwen2.5:7b"
     llm_api_key: SecretStr = SecretStr("")
-    llm_timeout_seconds: float = Field(default=120.0, gt=0, le=600)
+    llm_timeout_seconds: float = Field(default=300.0, gt=0, le=1800)
     judge_model: str = "llama3.1:8b"
     llm_context_tokens: int = Field(default=16_384, ge=1024, le=1_000_000)
     llm_max_output_tokens: int = Field(default=2048, ge=128, le=32_768)
@@ -83,7 +83,7 @@ class Settings(BaseSettings):
     max_tokens_per_run: int = Field(default=40_000, ge=1000, le=1_000_000)
     max_subquestions: int = Field(default=6, ge=1, le=10)
     hits_per_subquestion: int = Field(default=4, ge=1, le=10)
-    run_timeout_seconds: float = Field(default=300.0, gt=0, le=3600)
+    run_timeout_seconds: float = Field(default=600.0, gt=0, le=3600)
 
     # --- embeddings ---
     embedding_provider: EmbeddingProvider = EmbeddingProvider.HASH
