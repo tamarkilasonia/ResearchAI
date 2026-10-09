@@ -13,6 +13,9 @@ LABELS = {
         "insufficient": "insufficient evidence",
         "conflict": "conflict",
         "unanchored": "quote not found in source",
+        "partial": "partially supported by its sources",
+        "precision": "citation precision",
+        "removed": "unsupported sentences removed",
     },
     Language.KA: {
         "sources": "წყაროები",
@@ -21,6 +24,9 @@ LABELS = {
         "insufficient": "არასაკმარისი მონაცემები",
         "conflict": "წინააღმდეგობა",
         "unanchored": "ციტატა წყაროში ვერ მოიძებნა",
+        "partial": "წყაროები ნაწილობრივ ადასტურებს",
+        "precision": "ციტირების სიზუსტე",
+        "removed": "წაშლილი დაუდასტურებელი წინადადებები",
     },
 }
 
@@ -44,7 +50,8 @@ def render_markdown(result: ResearchResult) -> str:
             "insufficient_evidence": f"*{labels['insufficient']}:* ",
             "conflict": f"**{labels['conflict']}:** ",
         }.get(sentence.kind, "")
-        return f"{prefix}{sentence.text} {refs}{calcs}".rstrip()
+        flag = f" *({labels['partial']})*" if sentence.support == "partial" else ""
+        return f"{prefix}{sentence.text} {refs}{calcs}{flag}".rstrip()
 
     parts = [f"# {report.title}", ""]
     parts += [line(s) for s in report.summary]
@@ -69,5 +76,10 @@ def render_markdown(result: ResearchResult) -> str:
                 else doc_id
             )
             parts.append(f"{number}. `{doc_id}`: {detail}")
-    parts += ["", f"*{labels['status']}: {result.status.value} · {result.mode}*", ""]
+    status = f"{labels['status']}: {result.status.value} · {result.mode}"
+    if (checks := result.citation_report) is not None and checks.citations_total:
+        status += f" · {labels['precision']} {checks.precision:.0%}"
+        if checks.removed:
+            status += f" · {labels['removed']}: {len(checks.removed)}"
+    parts += ["", f"*{status}*", ""]
     return "\n".join(parts)
