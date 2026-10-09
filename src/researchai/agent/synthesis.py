@@ -299,6 +299,7 @@ class AnchorStats:
     unknown_evidence: int = 0
     dropped_claims: int = 0
     unknown_calculations: int = 0
+    templated_insufficient: int = 0
 
 
 def _convert_sentence(
@@ -306,7 +307,13 @@ def _convert_sentence(
     evidence: dict[str, Evidence],
     calculation_ids: set[str],
     stats: AnchorStats,
+    language: Language,
 ) -> ReportSentence | None:
+    if raw.kind == "insufficient_evidence":
+        # Fixed wording: the model's own text could smuggle in an uncited claim
+        # ("... does not affect range, as there is no data") under this kind.
+        stats.templated_insufficient += 1
+        return _insufficient(language)
     citations = []
     for cite in raw.citations:
         item = evidence.get(cite.evidence_id)
@@ -340,7 +347,9 @@ def from_llm_report(
     stats = AnchorStats()
 
     def convert(sentences: Sequence[_LLMSentence]) -> list[ReportSentence]:
-        converted = (_convert_sentence(s, by_id, calc_ids, stats) for s in sentences)
+        converted = (
+            _convert_sentence(s, by_id, calc_ids, stats, profile.language) for s in sentences
+        )
         return [s for s in converted if s is not None]
 
     known = {sq.id: sq for sq in plan.sub_questions}
@@ -406,9 +415,11 @@ async def llm_report(
     llm: LLMClient,
     budget: RunBudget,
     max_output_tokens: int,
+    max_evidence_tokens: int,
 ) -> tuple[Report, AnchorStats, int]:
     """Returns the report, anchoring statistics and how many passages were trimmed."""
-    allowance = llm.context_tokens - max_output_tokens - 2500  # instructions, schema, question
+    fits_context = llm.context_tokens - max_output_tokens - 2500  # instructions, schema, question
+    allowance = min(fits_context, max_evidence_tokens)
     fitted, trimmed = fit_evidence(evidence, allowance)
     language_name: Literal["English", "Georgian"] = (
         "Georgian" if profile.language is Language.KA else "English"
