@@ -7,12 +7,12 @@ import pytest
 
 from researchai.corpus.loader import (
     CorpusError,
-    georgian_share,
     load_corpus,
     parse_document,
     read_manifest,
     write_manifest,
 )
+from researchai.textutil import georgian_share
 from tests.support import EN_BODY, meta_fields, render_document, write_corpus, write_document
 
 

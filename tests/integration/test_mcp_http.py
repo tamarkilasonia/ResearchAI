@@ -7,70 +7,27 @@ per module, with uvicorn serving the app on a free local port.
 from __future__ import annotations
 
 import asyncio
-import socket
 from collections.abc import AsyncIterator
 from datetime import date
-from pathlib import Path
 
 import httpx
 import pytest
 import pytest_asyncio
-import uvicorn
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy.pool import NullPool
 
-from researchai.corpus.embeddings import HashEmbedder
-from researchai.corpus.ingest import ingest
-from researchai.corpus.loader import load_corpus
 from researchai.corpus.models import Language, Topic
-from researchai.db import migrate
-from researchai.db.session import session_factory
 from researchai.mcp_client.client import ResearchTools, ToolCallError
-from researchai.mcp_server.__main__ import build_app
-from researchai.mcp_server.server import ToolServices
-from researchai.tools.documents import DocumentStore
 from researchai.tools.errors import ErrorCode
-from researchai.tools.search import CorpusSearch
-from tests.integration.conftest import TEST_DIM, ensure_database, scratch_database_url
-from tests.support import make_settings
+from tests.integration.conftest import scratch_database_url, serving_real_corpus
 
 pytestmark = pytest.mark.asyncio(loop_scope="module")
 
-CORPUS_ROOT = Path(__file__).resolve().parents[2] / "corpus"
 MCP_DATABASE_URL = scratch_database_url("_test_mcp")
-EMBEDDER = HashEmbedder(TEST_DIM)
-
-
-def _free_port() -> int:
-    with socket.socket() as sock:
-        sock.bind(("127.0.0.1", 0))
-        return int(sock.getsockname()[1])
 
 
 @pytest_asyncio.fixture(scope="module", loop_scope="module")
 async def mcp_url() -> AsyncIterator[str]:
-    await ensure_database(MCP_DATABASE_URL)
-    engine = create_async_engine(MCP_DATABASE_URL, poolclass=NullPool)
-    await migrate.downgrade(engine, embedding_dim=TEST_DIM)
-    await migrate.upgrade(engine, embedding_dim=TEST_DIM)
-    sessions = session_factory(engine)
-    await ingest(load_corpus(CORPUS_ROOT), EMBEDDER, sessions, batch_size=128)
-
-    port = _free_port()
-    services = ToolServices(
-        search=CorpusSearch(sessions, EMBEDDER), documents=DocumentStore(sessions)
-    )
-    app = build_app(make_settings(mcp_port=port), services)
-    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_config=None))
-    task = asyncio.create_task(server.serve())
-    while not server.started:  # noqa: ASYNC110 - uvicorn exposes only a flag
-        await asyncio.sleep(0.05)
-    try:
-        yield f"http://127.0.0.1:{port}/mcp"
-    finally:
-        server.should_exit = True
-        await task
-        await engine.dispose()
+    async with serving_real_corpus(MCP_DATABASE_URL) as url:
+        yield url
 
 
 async def test_tools_are_listed_over_http(mcp_url: str) -> None:

@@ -10,15 +10,9 @@ from hypothesis import strategies as st
 from sqlalchemy.dialects.postgresql.base import PGDialect
 
 from researchai.corpus.models import Language, SourceType, Topic
+from researchai.textutil import MAX_KEYWORD_TERMS, keyword_terms, light_stem
 from researchai.tools.errors import ErrorCode, ToolFailure
-from researchai.tools.search import (
-    MAX_KEYWORD_TERMS,
-    SearchFilters,
-    keyword_terms,
-    light_stem,
-    reciprocal_rank_fusion,
-    to_tsquery_text,
-)
+from researchai.tools.search import SearchFilters, reciprocal_rank_fusion, to_tsquery_text
 
 
 def test_keyword_terms_drop_stop_words_and_stem() -> None:

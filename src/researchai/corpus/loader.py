@@ -26,14 +26,14 @@ from typing import Any
 from pydantic import ValidationError
 
 from researchai.corpus.models import Document, DocumentMeta, Language
+from researchai.textutil import georgian_share
 
 FRONT_MATTER_FENCE = "+++"
 BOM = "\ufeff"
 CORPUS_FILE = "corpus.toml"
 MANIFEST_FILE = "manifest.json"
 
-# Georgian Mkhedruli letters. Used to sanity-check the declared language.
-_GEORGIAN = range(0x10D0, 0x1100)
+# Used to sanity-check the declared language.
 MIN_GEORGIAN_SHARE_KA = 0.5
 MAX_GEORGIAN_SHARE_EN = 0.05
 
@@ -89,13 +89,6 @@ def parse_document(text: str) -> Document:
     if not body.strip():
         raise ValueError("document body is empty")
     return Document(meta=meta, body=body)
-
-
-def georgian_share(text: str) -> float:
-    letters = [ch for ch in text if ch.isalpha()]
-    if not letters:
-        return 0.0
-    return sum(ord(ch) in _GEORGIAN for ch in letters) / len(letters)
 
 
 def _check_language(document: Document) -> str | None:
