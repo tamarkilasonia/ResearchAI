@@ -59,6 +59,18 @@ none. {UNTRUSTED_RULE}
 
 Respond with JSON only."""
 
+ENTAILMENT_SYSTEM = f"""You check whether statements are supported by the text cited for them.
+
+For each statement answer:
+- "supported": everything it says (numbers, scope, place, time, who said it, how strong the
+  claim is) follows from the cited text and the listed calculations;
+- "partial": the main point follows, but some detail is added, generalised or overstated;
+- "not_supported": the cited text does not say this, says something else, or says the opposite.
+Judge only against the cited text, not against your own knowledge. Give a short reason.
+{UNTRUSTED_RULE}
+
+Respond with JSON only."""
+
 WRITER_SYSTEM = f"""You write a short research report from evidence passages.
 
 Hard rules:
@@ -160,3 +172,15 @@ def writer_user(
         f"for outdated ones use the newer value):\n{known}\n\n"
         f"Calculations:\n{calcs}\n\nEvidence:\n{blocks}"
     )
+
+
+def entailment_user(
+    items: Sequence[tuple[str, str, Sequence[str]]], calculations: Sequence[Calculation]
+) -> str:
+    """``items``: (id, statement, cited spans)."""
+    blocks = []
+    for key, statement, spans in items:
+        cited = "\n".join(f"<evidence>{span}</evidence>" for span in spans)
+        blocks.append(f"[{key}] Statement: {statement}\nCited text:\n{cited}")
+    calcs = "\n".join(f"- {c.id}: {c.expression} = {c.result:g}" for c in calculations) or "(none)"
+    return "Calculations (trusted):\n" + calcs + "\n\n" + "\n\n".join(blocks)
