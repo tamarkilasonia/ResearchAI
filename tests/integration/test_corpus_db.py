@@ -25,6 +25,7 @@ from tests.integration.conftest import TEST_DIM
 from tests.support import make_settings, write_corpus, write_document
 
 EMBEDDER = HashEmbedder(TEST_DIM)
+CORPUS_ROOT = Path(__file__).resolve().parents[2] / "corpus"
 
 
 async def count(session: AsyncSession, model: type[object]) -> int:
@@ -163,3 +164,35 @@ def test_cli_upgrade_then_ingest(
         return int(value or 0)
 
     assert asyncio.run(documents()) == 2
+
+
+async def test_real_corpus_ingests_with_exact_spans(
+    sessions: async_sessionmaker[AsyncSession],
+) -> None:
+    corpus = load_corpus(CORPUS_ROOT)
+    report = await ingest(corpus, EMBEDDER, sessions, batch_size=64)
+    assert report.document_count == len(corpus.documents)
+    async with sessions() as session:
+        assert await count(session, DocumentRow) == len(corpus.documents)
+        assert await count(session, ChunkRow) == report.chunk_count
+        mismatched = await session.scalar(
+            select(func.count())
+            .select_from(ChunkRow)
+            .join(DocumentRow)
+            .where(
+                func.substr(
+                    DocumentRow.body,
+                    ChunkRow.char_start + 1,
+                    ChunkRow.char_end - ChunkRow.char_start,
+                )
+                != ChunkRow.text
+            )
+        )
+        georgian_hits = await session.scalar(
+            select(func.count())
+            .select_from(ChunkRow)
+            .where(ChunkRow.tsv.op("@@")(func.plainto_tsquery("simple", "ელექტრომობილები")))
+        )
+    assert mismatched == 0  # Python offsets == PostgreSQL character offsets, also for Georgian
+    assert georgian_hits is not None
+    assert georgian_hits > 0
