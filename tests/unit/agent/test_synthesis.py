@@ -187,14 +187,34 @@ def test_extractive_skips_short_lines_tables_and_off_topic_sentences() -> None:
     ]
 
 
-def test_from_llm_report_keeps_the_models_own_insufficiency_sentence() -> None:
+def test_insufficiency_sentences_always_use_the_fixed_wording() -> None:
     raw = _llm_report(
         [{"sub_question_id": "sq3", "heading": "Hydrogen", "sentences": [
-            {"text": "The corpus says nothing about hydrogen.", "kind": "insufficient_evidence"}]}]
+            {"text": "Climate does not affect range, as there is no data.",
+             "kind": "insufficient_evidence"}]}]
     )  # fmt: skip
-    report, _ = from_llm_report(raw, PROFILE, PLAN, EVIDENCE, [])
+    report, stats = from_llm_report(raw, PROFILE, PLAN, EVIDENCE, [])
     hydrogen = report.sections[2]
-    assert [s.text for s in hydrogen.sentences] == ["The corpus says nothing about hydrogen."]
+    assert [s.text for s in hydrogen.sentences] == [
+        "Insufficient evidence: the corpus does not contain information on this point."
+    ]
+    assert stats.templated_insufficient == 1
+
+
+async def test_writer_evidence_cap_trims_passages() -> None:
+    from researchai.agent.budget import Limits, RunBudget
+    from researchai.agent.synthesis import llm_report
+    from tests.agent_fakes import ScriptedLLM, always
+
+    llm = ScriptedLLM({"LLMReport": [always({"title": "t", "summary": [], "sections": []})]})
+    budget = RunBudget(Limits(10, 2, 40_000, 5, 3))
+    _, _, trimmed = await llm_report(
+        "q", PROFILE, PLAN, EVIDENCE, [], [],
+        llm=llm, budget=budget, max_output_tokens=500, max_evidence_tokens=60,
+    )  # fmt: skip
+    assert trimmed == 1
+    prompt = llm.requests[0][1][1]["content"]
+    assert prompt.count("<evidence id=") == 2
 
 
 def test_one_incidental_shared_word_is_not_relevance() -> None:
