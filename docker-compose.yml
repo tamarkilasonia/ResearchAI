@@ -1,0 +1,44 @@
+# Local stack. Copy .env.example to .env first (compose reads it automatically).
+# Later phases add the MCP server (internal network only) and an init job.
+
+name: researchai
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-researchai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-researchai}
+      POSTGRES_DB: ${POSTGRES_DB:-researchai}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    # Published on localhost only, for integration tests and psql.
+    ports:
+      - "127.0.0.1:${DB_HOST_PORT:-5434}:5432"
+    networks: [internal]
+
+  backend:
+    build: .
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-researchai}:${POSTGRES_PASSWORD:-researchai}@db:5432/${POSTGRES_DB:-researchai}
+      LLM_BASE_URL: ${LLM_BASE_URL_DOCKER:-http://host.docker.internal:11434/v1}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${API_HOST_PORT:-8100}:8000"
+    networks: [internal]
+
+volumes:
+  pgdata:
+
+networks:
+  internal:
