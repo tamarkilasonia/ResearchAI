@@ -16,13 +16,13 @@ LLM
 from __future__ import annotations
 
 import re
-import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from researchai.agent.anchoring import anchor_quote
 from researchai.agent.budget import RunBudget
 from researchai.agent.llm import LLMClient, estimate_tokens, structured_call
 from researchai.agent.models import (
@@ -38,6 +38,12 @@ from researchai.agent.models import (
     SentenceKind,
 )
 from researchai.agent.prompts import WRITER_SYSTEM, writer_user
+from researchai.agent.verification import (
+    Findings,
+    conflict_sentence,
+    ensure_conflicts_reported,
+    missing_sentence,
+)
 from researchai.corpus.models import Language
 from researchai.textutil import keyword_terms, sentence_spans
 
@@ -74,57 +80,6 @@ TEXT = {
 }
 
 _TABLE_RULE = re.compile(r"^\|?[\s:|-]+\|?$")
-_QUOTE_FOLD = str.maketrans(
-    {
-        "\u2019": "'",  # right single quotation mark
-        "\u2018": "'",  # left single quotation mark
-        "\u201c": '"',  # left double quotation mark
-        "\u201d": '"',  # right double quotation mark
-        "\u2013": "-",  # en dash
-        "\u2014": "-",  # em dash
-    }
-)
-
-
-# ----------------------------------------------------------------- anchoring
-
-
-def _normalize_with_map(text: str) -> tuple[str, list[int]]:
-    """Casefolded, whitespace-collapsed text plus a map from each char to its source index."""
-    out: list[str] = []
-    index: list[int] = []
-    previous_space = True
-    for i, ch in enumerate(text):
-        folded = unicodedata.normalize("NFKC", ch).translate(_QUOTE_FOLD).casefold()
-        if folded.isspace() or not folded:
-            if not previous_space:
-                out.append(" ")
-                index.append(i)
-            previous_space = True
-            continue
-        for part in folded:
-            out.append(part)
-            index.append(i)
-        previous_space = False
-    return "".join(out).rstrip(), index
-
-
-def anchor_quote(evidence: Evidence, quote: str) -> tuple[int, int] | None:
-    """Absolute document offsets of ``quote`` inside the evidence passage, if present."""
-    quote = quote.strip()
-    if not quote:
-        return None
-    position = evidence.text.find(quote)
-    if position >= 0:
-        return evidence.char_start + position, evidence.char_start + position + len(quote)
-    haystack, mapping = _normalize_with_map(evidence.text)
-    needle, _ = _normalize_with_map(quote)
-    position = haystack.find(needle) if needle else -1
-    if position < 0:
-        return None
-    start = mapping[position]
-    end = mapping[position + len(needle) - 1] + 1
-    return evidence.char_start + start, evidence.char_start + end
 
 
 def make_citation(evidence: Evidence, quote: str) -> Citation:
@@ -151,27 +106,42 @@ class _Candidate:
     end: int = field(compare=False)
 
 
-def _candidates(evidence: Evidence, terms: set[str]) -> list[_Candidate]:
+def _candidates(
+    evidence: Evidence,
+    terms: set[str],
+    skip: set[tuple[str, int]],
+    quality: dict[str, tuple[float, float]],
+) -> list[_Candidate]:
+    reliability, freshness = quality.get(evidence.doc_id, (0.5, 0.5))
     found = []
     for start, end in sentence_spans(evidence.text):
         sentence = evidence.text[start:end]
         if len(sentence) < MIN_SENTENCE_CHARS or _TABLE_RULE.match(sentence):
             continue
+        if sentence.startswith("|") and not any(ch.isdigit() for ch in sentence):
+            continue  # a table header row states nothing
+        if (evidence.doc_id, evidence.char_start + start) in skip:
+            continue  # a value a newer source supersedes; it appears only in a conflict
         overlap = len(terms & set(keyword_terms(sentence)))
         if overlap < min(MIN_TERM_OVERLAP, len(terms)):
             continue
         has_number = any(ch.isdigit() for ch in sentence)
         # Higher score first; ties broken by evidence id then position (deterministic).
-        score = overlap + 0.5 * has_number + 0.1 * evidence.score
+        score = overlap + 0.5 * has_number + 0.1 * evidence.score + reliability + 0.5 * freshness
         found.append(_Candidate(-score, (evidence.id, start), evidence, start, end))
     return found
 
 
 def extractive_section(
-    sub_question_text: str, queries: Sequence[str], evidence: Sequence[Evidence]
+    sub_question_text: str,
+    queries: Sequence[str],
+    evidence: Sequence[Evidence],
+    findings: Findings | None = None,
 ) -> list[ReportSentence]:
+    findings = findings or Findings()
     terms = set(keyword_terms(" ".join([sub_question_text, *queries])))
-    ranked = sorted(c for item in evidence for c in _candidates(item, terms))
+    skip, quality = findings.superseded(), findings.quality()
+    ranked = sorted(c for item in evidence for c in _candidates(item, terms, skip, quality))
     chosen: list[_Candidate] = []
     used: set[str] = set()
     for candidate in ranked:
@@ -218,18 +188,33 @@ def extractive_report(
     profile: QuestionProfile,
     plan: ResearchPlan,
     evidence: Sequence[Evidence],
+    findings: Findings | None = None,
 ) -> Report:
+    findings = findings or Findings()
     language = profile.language
+    judged_insufficient = set(findings.insufficient(plan, evidence))
+    claims = {c.id: c for c in findings.claims}
+    by_evidence = {e.id: e for e in evidence}
     sections: list[ReportSection] = []
     insufficient: list[str] = []
     for sq in plan.sub_questions:
         own = [e for e in evidence if e.sub_question_id == sq.id]
-        sentences = extractive_section(sq.text, sq.queries, own) if own else []
+        sentences = (
+            extractive_section(sq.text, sq.queries, own, findings)
+            if own and sq.id not in judged_insufficient
+            else []
+        )
         if not sentences:
             insufficient.append(sq.id)
             sentences = [_insufficient(language)]
+        sentences += [
+            conflict_sentence(conflict, claims, by_evidence, language)
+            for conflict in findings.conflicts_for(sq.id)
+        ]
         sections.append(ReportSection(heading=sq.text, sub_question_id=sq.id, sentences=sentences))
     summary = [_scope_sentence(language, plan, evidence)]
+    if findings.missing_entities:
+        summary.append(missing_sentence(findings.missing_entities, language))
     if insufficient:
         items = "; ".join(sq.text for sq in plan.sub_questions if sq.id in insufficient)
         summary.append(
@@ -250,11 +235,16 @@ def extractive_report(
     )
 
 
-def abstention_report(question: str, language: Language, plan: ResearchPlan) -> Report:
+def abstention_report(
+    question: str, language: Language, plan: ResearchPlan, missing: Sequence[str] = ()
+) -> Report:
+    summary = [ReportSentence(text=TEXT[language]["abstain"], kind="insufficient_evidence")]
+    if missing:
+        summary.append(missing_sentence(missing, language))
     return Report(
         language=language,
         title=TEXT[language]["title"].format(question=question),
-        summary=[ReportSentence(text=TEXT[language]["abstain"], kind="insufficient_evidence")],
+        summary=summary,
         sections=[],
         insufficient=[sq.id for sq in plan.sub_questions],
         generated_by="rules",
@@ -300,6 +290,7 @@ class AnchorStats:
     dropped_claims: int = 0
     unknown_calculations: int = 0
     templated_insufficient: int = 0
+    templated_conflicts: int = 0
 
 
 def _convert_sentence(
@@ -410,7 +401,7 @@ async def llm_report(
     plan: ResearchPlan,
     evidence: Sequence[Evidence],
     calculations: Sequence[Calculation],
-    insufficient: Sequence[str],
+    findings: Findings,
     *,
     llm: LLMClient,
     budget: RunBudget,
@@ -428,9 +419,29 @@ async def llm_report(
         llm,
         budget,
         system=WRITER_SYSTEM.replace("{language}", language_name),
-        user=writer_user(question, plan, fitted, calculations, insufficient),
+        user=writer_user(
+            question,
+            plan,
+            fitted,
+            calculations,
+            insufficient=findings.insufficient(plan, evidence),
+            conflicts=findings.conflicts,
+            claims=findings.claims,
+            missing=findings.missing_entities,
+            quality=findings.quality(),
+        ),
         schema=LLMReport,
         max_tokens=max_output_tokens,
     )
     report, stats = from_llm_report(result.value, profile, plan, fitted, calculations)
+    report, stats.templated_conflicts = ensure_conflicts_reported(report, findings, evidence)
+    if findings.missing_entities:
+        report = report.model_copy(
+            update={
+                "summary": [
+                    missing_sentence(findings.missing_entities, profile.language),
+                    *report.summary,
+                ]
+            }
+        )
     return report, stats, trimmed
