@@ -241,18 +241,26 @@ def drop_superseded_claims(report: Report, findings: Findings) -> tuple[Report, 
         dropped += stale
         return not stale
 
+    sections = [
+        section.model_copy(update={"sentences": [s for s in section.sentences if keep(s)]})
+        for section in report.sections
+    ]
+    summary = [s for s in report.summary if keep(s)]
+    trimmed = report.model_copy(update={"sections": sections, "summary": summary})
+    return fill_empty_sections(trimmed), dropped
+
+
+def fill_empty_sections(report: Report) -> Report:
+    """A sub-question section left without supported sentences says insufficient evidence."""
     supported = ("claim", "conflict", "recommendation")
     sections = []
     insufficient = list(report.insufficient)
     for section in report.sections:
-        kept = [s for s in section.sentences if keep(s)]
-        if not any(s.kind in supported for s in kept) and section.sub_question_id:
-            # Everything this section said was superseded: say so instead of nothing.
-            if not any(s.kind == "insufficient_evidence" for s in kept):
-                kept.append(insufficient_sentence(report.language))
+        sentences = list(section.sentences)
+        if section.sub_question_id and not any(s.kind in supported for s in sentences):
+            if not any(s.kind == "insufficient_evidence" for s in sentences):
+                sentences.append(insufficient_sentence(report.language))
             if section.sub_question_id not in insufficient:
                 insufficient.append(section.sub_question_id)
-        sections.append(section.model_copy(update={"sentences": kept}))
-    summary = [s for s in report.summary if keep(s)]
-    update = {"sections": sections, "summary": summary, "insufficient": insufficient}
-    return report.model_copy(update=update), dropped
+        sections.append(section.model_copy(update={"sentences": sentences}))
+    return report.model_copy(update={"sections": sections, "insufficient": insufficient})
