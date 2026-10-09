@@ -86,3 +86,17 @@ async def test_unknown_place_abstains_on_the_real_corpus(mcp_url: str) -> None:
         )
     assert result.status is RunStatus.ABSTAINED
     assert result.missing_entities == ["Japan"]
+
+
+async def test_offline_citations_all_verify_on_the_real_corpus(mcp_url: str) -> None:
+    async with ResearchTools(mcp_url) as tools:
+        result = await ResearchAgent(tools=tools, llm=None, settings=make_settings()).run(
+            "Compare the advantages and disadvantages of electric cars in Georgia."
+        )
+    report = result.citation_report
+    assert report is not None
+    assert report.citations_total > 0
+    assert report.citations_verified == report.citations_total
+    assert report.precision == 1.0
+    assert report.removed == []
+    assert report.unsupported == report.misattributed == 0
