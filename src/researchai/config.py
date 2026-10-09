@@ -75,6 +75,7 @@ class Settings(BaseSettings):
     judge_model: str = "llama3.1:8b"
     llm_context_tokens: int = Field(default=16_384, ge=1024, le=1_000_000)
     llm_max_output_tokens: int = Field(default=2048, ge=128, le=32_768)
+    llm_writer_evidence_tokens: int = Field(default=4000, ge=500, le=200_000)
     llm_seed: int = 42
 
     # --- agent budgets (per research run) ---
