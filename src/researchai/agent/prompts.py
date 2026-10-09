@@ -10,7 +10,14 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 
-from researchai.agent.models import Calculation, Evidence, QuestionProfile, ResearchPlan
+from researchai.agent.models import (
+    Calculation,
+    Claim,
+    Conflict,
+    Evidence,
+    QuestionProfile,
+    ResearchPlan,
+)
 from researchai.agent.profile import ASPECTS
 
 UNTRUSTED_RULE = (
@@ -41,6 +48,17 @@ decimals with a dot). If no calculation is useful, return an empty list. {UNTRUS
 
 Respond with JSON only."""
 
+CONFLICT_SYSTEM = f"""You check evidence passages for disagreements between different documents.
+
+Report a pair only if both passages make a claim about the same thing (same place, product,
+period or rule) and the claims cannot both be true, e.g. a tax "applies" vs "is exempt", or
+two different numbers for the same quantity. Different values for different years of a time
+series are not a disagreement unless one passage presents an old value as current. Copy each
+quote verbatim from its passage. Report at most 6 pairs; return an empty list if there are
+none. {UNTRUSTED_RULE}
+
+Respond with JSON only."""
+
 WRITER_SYSTEM = f"""You write a short research report from evidence passages.
 
 Hard rules:
@@ -59,11 +77,12 @@ Hard rules:
 Respond with JSON only."""
 
 
-def evidence_block(item: Evidence) -> str:
+def evidence_block(item: Evidence, quality: tuple[float, float] | None = None) -> str:
+    rating = f' reliability="{quality[0]:.2f}" freshness="{quality[1]:.2f}"' if quality else ""
     return (
         f'<evidence id="{item.id}" doc="{item.doc_id}" published="{item.published.isoformat()}" '
         f'source_type="{item.source_type.value}" publisher="{item.publisher}" '
-        f'language="{item.language.value}">\n{item.text}\n</evidence>'
+        f'language="{item.language.value}"{rating}>\n{item.text}\n</evidence>'
     )
 
 
@@ -93,15 +112,26 @@ def analyst_user(question: str, evidence: Sequence[Evidence]) -> str:
     return f"Question:\n{question}\n\nEvidence:\n{blocks}"
 
 
+def conflict_user(question: str, evidence: Sequence[Evidence]) -> str:
+    blocks = "\n\n".join(evidence_block(item) for item in evidence)
+    return f"Question:\n{question}\n\nEvidence:\n{blocks}"
+
+
 def writer_user(
     question: str,
     plan: ResearchPlan,
     evidence: Sequence[Evidence],
     calculations: Sequence[Calculation],
-    insufficient: Sequence[str],
+    *,
+    insufficient: Sequence[str] = (),
+    conflicts: Sequence[Conflict] = (),
+    claims: Sequence[Claim] = (),
+    missing: Sequence[str] = (),
+    quality: dict[str, tuple[float, float]] | None = None,
 ) -> str:
+    quality = quality or {}
     subs = "\n".join(f"- {sq.id}: {sq.text}" for sq in plan.sub_questions)
-    blocks = "\n\n".join(evidence_block(item) for item in evidence)
+    blocks = "\n\n".join(evidence_block(item, quality.get(item.doc_id)) for item in evidence)
     calcs = (
         "\n".join(
             f"- {c.id}: {c.description} = {c.expression} = {c.result:g} "
@@ -110,9 +140,23 @@ def writer_user(
         )
         or "(none)"
     )
-    missing = ", ".join(insufficient) or "(none)"
+    by_id = {c.id: c for c in claims}
+
+    def side(ids: Sequence[str]) -> str:
+        return "; ".join(f'{by_id[i].evidence_id}: "{by_id[i].text}"' for i in ids if i in by_id)
+
+    known = (
+        "\n".join(
+            f"- {c.id} ({c.kind}): newer/preferred {side(c.current)} | other {side(c.others)}"
+            for c in conflicts
+        )
+        or "(none)"
+    )
     return (
         f"Question:\n{question}\n\nSub-questions (one section each, use these ids):\n{subs}\n\n"
-        f"Sub-questions with no evidence found: {missing}\n\nCalculations:\n{calcs}\n\n"
-        f"Evidence:\n{blocks}"
+        f"Sub-questions without sufficient evidence: {', '.join(insufficient) or '(none)'}\n"
+        f"Names in the question the corpus never mentions: {', '.join(missing) or '(none)'}\n\n"
+        f"Known conflicts between sources (write a conflict sentence citing both sides; "
+        f"for outdated ones use the newer value):\n{known}\n\n"
+        f"Calculations:\n{calcs}\n\nEvidence:\n{blocks}"
     )
