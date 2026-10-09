@@ -53,7 +53,7 @@ def test_evidence_numbers(text: str, expected: set[float]) -> None:
 
 def test_operands_and_rejections() -> None:
     assert sorted(operands("(16.8 * 0.292) / 2")) == [0.292, 2.0, 16.8]
-    for bad in ("x * 2", "abs(-1)", "a.b", "'1' + 1", "1 +", "True * 2"):
+    for bad in ("x * 2", "abs(-1)", "a.b", "'1' + 1", "1 +", "True * 2", "210", "-5"):
         with pytest.raises(LLMError):
             operands(bad)
 
@@ -77,9 +77,9 @@ def test_grounding_check() -> None:
     assert "0.35" in str(check_grounded(invented, BY_ID))
     wrong_source = _proposal("16.8 * 0.292", ["E1"]).calculations[0]
     assert check_grounded(wrong_source, BY_ID) is not None
-    unknown = _proposal("16.8", ["E9"]).calculations[0]
+    unknown = _proposal("16.8 * 2", ["E9"]).calculations[0]
     assert "unknown" in str(check_grounded(unknown, BY_ID))
-    not_math = _proposal("sqrt(16.8)", ["E1"]).calculations[0]
+    not_math = _proposal("sqrt(16.8) * 2", ["E1"]).calculations[0]
     assert "not allowed" in str(check_grounded(not_math, BY_ID))
 
 

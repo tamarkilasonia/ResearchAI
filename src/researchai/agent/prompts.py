@@ -34,7 +34,8 @@ ANALYST_SYSTEM = f"""You decide which arithmetic would help answer a research qu
 only numbers that appear in the evidence. Examples: cost per 100 km = consumption (kWh per
 100 km) x tariff (GEL per kWh); a percentage change between two prices.
 
-Rules: at most 4 calculations; each expression uses only numbers, + - * / and parentheses;
+Rules: at most 4 calculations; each expression combines at least two numbers with + - * /
+(restating a single number is not a calculation) and uses only numbers and parentheses;
 every number must be copied exactly from an evidence block you list in evidence_ids (write
 decimals with a dot). If no calculation is useful, return an empty list. {UNTRUSTED_RULE}
 
