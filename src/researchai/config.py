@@ -10,9 +10,9 @@ from __future__ import annotations
 from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -84,6 +84,15 @@ class Settings(BaseSettings):
     # --- corpus ---
     corpus_dir: Path = Path("corpus")
 
+    # --- MCP tool server ---
+    mcp_server_url: str = "http://localhost:8765/mcp"
+    mcp_host: str = "127.0.0.1"
+    mcp_port: int = Field(default=8765, ge=1, le=65535)
+    mcp_allowed_hosts: str = "localhost:*,127.0.0.1:*"
+    tool_timeout_seconds: float = Field(default=60.0, gt=0, le=600)
+    live_web_search_enabled: bool = False
+    live_web_search_url: str = ""
+
     # --- storage ---
     database_url: str = "postgresql+asyncpg://researchai:researchai@localhost:5434/researchai"
 
@@ -94,16 +103,28 @@ class Settings(BaseSettings):
             raise ValueError("DATABASE_URL must use the postgresql+asyncpg:// scheme")
         return value
 
-    @field_validator("llm_base_url", "embedding_base_url")
+    @field_validator("llm_base_url", "embedding_base_url", "mcp_server_url")
     @classmethod
     def _http_url(cls, value: str) -> str:
         if not value.startswith(("http://", "https://")):
             raise ValueError("base URLs must be http(s) URLs")
         return value.rstrip("/")
 
+    @model_validator(mode="after")
+    def _web_search_needs_url(self) -> Self:
+        if self.live_web_search_enabled and not self.live_web_search_url.startswith(
+            ("http://", "https://")
+        ):
+            raise ValueError("LIVE_WEB_SEARCH_ENABLED requires an http(s) LIVE_WEB_SEARCH_URL")
+        return self
+
     @property
     def offline(self) -> bool:
         return self.llm_provider is LLMProvider.NONE
+
+    @property
+    def mcp_allowed_host_list(self) -> list[str]:
+        return [host.strip() for host in self.mcp_allowed_hosts.split(",") if host.strip()]
 
 
 @lru_cache(maxsize=1)
