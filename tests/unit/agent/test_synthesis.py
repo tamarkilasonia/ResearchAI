@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from researchai.agent.anchoring import anchor_quote
 from researchai.agent.graph import _evidence_from_hits
 from researchai.agent.models import (
     Calculation,
@@ -11,12 +12,12 @@ from researchai.agent.models import (
 from researchai.agent.synthesis import (
     LLMReport,
     abstention_report,
-    anchor_quote,
     extractive_report,
     extractive_section,
     fit_evidence,
     from_llm_report,
 )
+from researchai.agent.verification import Findings
 from researchai.corpus.models import Language, Topic
 from tests.agent_fakes import CHARGING, CONSUMPTION, TARIFF, VAT, hit
 
@@ -209,7 +210,7 @@ async def test_writer_evidence_cap_trims_passages() -> None:
     llm = ScriptedLLM({"LLMReport": [always({"title": "t", "summary": [], "sections": []})]})
     budget = RunBudget(Limits(10, 2, 40_000, 5, 3))
     _, _, trimmed = await llm_report(
-        "q", PROFILE, PLAN, EVIDENCE, [], [],
+        "q", PROFILE, PLAN, EVIDENCE, [], Findings(),
         llm=llm, budget=budget, max_output_tokens=500, max_evidence_tokens=60,
     )  # fmt: skip
     assert trimmed == 1
