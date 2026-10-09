@@ -1,12 +1,14 @@
 """The research graph (LangGraph).
 
     validate_input -> input_guard -> profile -> planner
-        -> search_worker x N (parallel, one per sub-question)  <-+
-        -> collect --(sub-questions without evidence, budget left)-+
-        -> analyze (calculations; LLM only) -> synthesize -> finalize
+      -> search_worker x N (parallel)  <------------------------------+
+      -> collect -> assess_sources -> extract_claims -> check_sufficiency
+           (insufficient sub-questions, budget left: follow-up round) -+
+      -> detect_conflicts -> analyze -> synthesize -> finalize
 
-Later phases insert verification (source assessment, claims, conflicts,
-sufficiency) between collect and synthesize, and citation verification
+Rules first, LLM where rules are unsure: source assessment, claim extraction
+and sufficiency are rules; conflict detection is rules plus an optional LLM
+pass for disagreements without numbers. Phase 6 adds citation verification
 between synthesize and finalize.
 
 Nodes reach data only through the MCP client in the runtime context.
@@ -29,26 +31,49 @@ from langgraph.runtime import Runtime
 from langgraph.types import Send
 
 from researchai.agent.analysis import run_calculations
+from researchai.agent.assess import assess_sources as assess_rules
+from researchai.agent.assess import rerank
 from researchai.agent.budget import BudgetExceeded, RunBudget
+from researchai.agent.claims import extract_claims as extract_rules
+from researchai.agent.conflicts import llm_conflicts, rule_conflicts
 from researchai.agent.llm import LLMClient, LLMError
 from researchai.agent.models import (
     Calculation,
+    Claim,
+    Conflict,
     Evidence,
     QuestionKind,
     QuestionProfile,
     Report,
     ResearchPlan,
     RunStatus,
+    SourceAssessment,
     SubQuestion,
+    SufficiencyVerdict,
     TraceEvent,
 )
 from researchai.agent.planner import make_plan
 from researchai.agent.profile import profile_question
-from researchai.agent.synthesis import abstention_report, extractive_report, llm_report
+from researchai.agent.sufficiency import key_entities, missing_entities, verdicts
+from researchai.agent.synthesis import (
+    abstention_report,
+    extractive_report,
+    fit_evidence,
+    llm_report,
+)
+from researchai.agent.verification import Findings
 from researchai.corpus.models import Topic
 from researchai.mcp_client.client import ToolCallError
 from researchai.tools.errors import ErrorCode
-from researchai.tools.schemas import CalculationResponse, SearchHit, SearchResponse
+from researchai.tools.schemas import (
+    MAX_METADATA_IDS,
+    CalculationResponse,
+    MetadataResponse,
+    SearchHit,
+    SearchMode,
+    SearchResponse,
+    SourceMetadata,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -56,12 +81,20 @@ MIN_QUESTION_CHARS = 3
 MAX_QUESTION_CHARS = 2000
 FATAL_TOOL_CODES = frozenset({ErrorCode.INDEX_NOT_READY, ErrorCode.BACKEND_UNAVAILABLE})
 CALCULATION_KINDS = (QuestionKind.NUMERIC, QuestionKind.COMPARISON, QuestionKind.RECOMMENDATION)
+FOCUSED_KINDS = (QuestionKind.FACTUAL, QuestionKind.NUMERIC)
 
 
 class AgentTools(Protocol):
     async def search_corpus(
-        self, query: str, *, top_k: int = 8, topic: Topic | None = None
+        self,
+        query: str,
+        *,
+        top_k: int = 8,
+        mode: SearchMode = "hybrid",
+        topic: Topic | None = None,
     ) -> SearchResponse: ...
+
+    async def get_source_metadata(self, doc_ids: list[str]) -> MetadataResponse: ...
 
     async def calculate(self, expression: str) -> CalculationResponse: ...
 
@@ -85,6 +118,11 @@ class ResearchState(TypedDict, total=False):
     pending: list[str]
     hits: Annotated[list[dict[str, Any]], operator.add]
     evidence: list[Evidence]
+    assessments: list[SourceAssessment]
+    claims: list[Claim]
+    verdicts: list[SufficiencyVerdict]
+    missing_entities: list[str]
+    conflicts: list[Conflict]
     calculations: list[Calculation]
     report: Report
     trace: Annotated[list[TraceEvent], operator.add]
@@ -263,40 +301,141 @@ def _evidence_from_hits(plan: ResearchPlan, hits: list[dict[str, Any]]) -> list[
 
 
 async def collect(state: ResearchState, *, runtime: Runtime[AgentContext]) -> dict[str, Any]:
-    plan = state["plan"]
-    evidence = _evidence_from_hits(plan, state.get("hits", []))
-    covered = {e.sub_question_id for e in evidence}
-    empty = [sq.id for sq in plan.sub_questions if sq.id not in covered]
-    budget = runtime.context.budget
-    retry = bool(empty) and budget.can_follow_up()
-    pending: list[str] = []
-    new_plan = plan
-    if retry:
-        # Follow-up round: search the sub-question text itself, without the topic filter.
-        pending = empty
-        subs = [
-            sq.model_copy(update={"queries": [sq.text]}) if sq.id in empty else sq
-            for sq in plan.sub_questions
-        ]
-        new_plan = plan.model_copy(update={"sub_questions": subs})
+    evidence = _evidence_from_hits(state["plan"], state.get("hits", []))
     return {
         "evidence": evidence,
-        "plan": new_plan,
-        "pending": pending,
-        "round": state.get("round", 0) + (1 if retry else 0),
-        "_detail": {
-            "evidence": len(evidence),
-            "documents": len({e.doc_id for e in evidence}),
-            "empty_sub_questions": empty,
-            "follow_up_round": retry,
-        },
+        "_detail": {"evidence": len(evidence), "documents": len({e.doc_id for e in evidence})},
     }
 
 
-def after_collect(state: ResearchState, *, runtime: Runtime[AgentContext]) -> list[Send] | str:
+def _fatal(exc: ToolCallError) -> FatalToolError:
+    return FatalToolError(f"{exc.code.value}: {exc.message}")
+
+
+async def _metadata(tools: AgentTools, doc_ids: list[str]) -> list[SourceMetadata]:
+    found: list[SourceMetadata] = []
+    for start in range(0, len(doc_ids), MAX_METADATA_IDS):
+        response = await tools.get_source_metadata(doc_ids[start : start + MAX_METADATA_IDS])
+        found.extend(response.sources)
+    return found
+
+
+async def assess_sources(state: ResearchState, *, runtime: Runtime[AgentContext]) -> dict[str, Any]:
+    evidence = state.get("evidence", [])
+    if not evidence:
+        return {"assessments": [], "_detail": {"sources": 0}}
+    doc_ids = list(dict.fromkeys(e.doc_id for e in evidence))
+    try:
+        metadata = await _metadata(runtime.context.tools, doc_ids)
+    except ToolCallError as exc:
+        if exc.code in FATAL_TOOL_CODES:
+            raise _fatal(exc) from exc
+        metadata = []  # fall back to dates carried by the evidence itself
+    assessments = assess_rules(evidence, metadata)
+    flagged = {a.doc_id: a.flags for a in assessments if a.flags}
+    return {
+        "assessments": assessments,
+        "evidence": rerank(evidence, assessments),
+        "_detail": {"sources": len(assessments), "flagged": flagged},
+    }
+
+
+async def extract_claims(state: ResearchState, *, runtime: Runtime[AgentContext]) -> dict[str, Any]:
+    reliability = {a.doc_id: a.reliability for a in state.get("assessments", [])}
+    claims = extract_rules(state.get("evidence", []), reliability)
+    facts = sum(len(c.facts) for c in claims)
+    return {"claims": claims, "_detail": {"claims": len(claims), "numeric_facts": facts}}
+
+
+async def check_sufficiency(
+    state: ResearchState, *, runtime: Runtime[AgentContext]
+) -> dict[str, Any]:
+    ctx = runtime.context
+    plan = state["plan"]
+    evidence = state.get("evidence", [])
+    results = verdicts(plan, evidence, state.get("assessments", []))
+    missing = state.get("missing_entities", [])
+    entity_searches = 0
+    if state.get("round", 0) == 0:
+        entities = key_entities(state["question"], state["profile"].language)
+        try:
+            missing, entity_searches = await missing_entities(
+                entities, evidence, ctx.tools, ctx.budget.searches_left
+            )
+        except ToolCallError as exc:
+            if exc.code in FATAL_TOOL_CODES:
+                raise _fatal(exc) from exc
+            missing = []
+        ctx.budget.reserve_searches(entity_searches)
+    insufficient = [v.sub_question_id for v in results if not v.sufficient]
+    follow_up = bool(insufficient) and not missing and ctx.budget.can_follow_up()
+    update: dict[str, Any] = {
+        "verdicts": results,
+        "missing_entities": missing,
+        "pending": [],
+        "_detail": {
+            "insufficient": insufficient,
+            "missing_entities": missing,
+            "entity_searches": entity_searches,
+            "follow_up_round": follow_up,
+        },
+    }
+    if follow_up:
+        # Follow-up round: search the sub-question text itself, without the topic filter.
+        subs = [
+            sq.model_copy(update={"queries": [sq.text]}) if sq.id in insufficient else sq
+            for sq in plan.sub_questions
+        ]
+        update |= {
+            "plan": plan.model_copy(update={"sub_questions": subs}),
+            "pending": insufficient,
+            "round": state.get("round", 0) + 1,
+        }
+    return update
+
+
+def after_sufficiency(state: ResearchState, *, runtime: Runtime[AgentContext]) -> list[Send] | str:
     if state.get("pending"):
         return dispatch_searches(state, runtime=runtime)
-    return "analyze"
+    return "detect_conflicts"
+
+
+async def detect_conflicts(
+    state: ResearchState, *, runtime: Runtime[AgentContext]
+) -> dict[str, Any]:
+    ctx = runtime.context
+    evidence = state.get("evidence", [])
+    claims = list(state.get("claims", []))
+    conflicts = rule_conflicts(claims)
+    notes: list[str] = []
+    llm_found = 0
+    if ctx.llm is not None and len({e.doc_id for e in evidence}) >= 2:
+        fitted, _ = fit_evidence(evidence, ctx.max_evidence_tokens)
+        reliability = {a.doc_id: a.reliability for a in state.get("assessments", [])}
+        new_claims, new_conflicts, notes = await llm_conflicts(
+            state["question"],
+            fitted,
+            claims,
+            conflicts,
+            reliability,
+            llm=ctx.llm,
+            budget=ctx.budget,
+            max_output_tokens=ctx.max_output_tokens,
+        )
+        claims += new_claims
+        conflicts += new_conflicts
+        llm_found = len(new_conflicts)
+    return {
+        "claims": claims,
+        "conflicts": conflicts,
+        "_detail": {
+            "rules": len(conflicts) - llm_found,
+            "llm": llm_found,
+            "outdated": sum(c.kind == "outdated" for c in conflicts),
+            "contradictions": sum(c.kind == "contradiction" for c in conflicts),
+            "notes": notes,
+        },
+    }
 
 
 async def analyze(state: ResearchState, *, runtime: Runtime[AgentContext]) -> dict[str, Any]:
@@ -319,18 +458,40 @@ async def analyze(state: ResearchState, *, runtime: Runtime[AgentContext]) -> di
     }
 
 
+def findings_of(state: ResearchState) -> Findings:
+    return Findings(
+        assessments=tuple(state.get("assessments", [])),
+        claims=tuple(state.get("claims", [])),
+        conflicts=tuple(state.get("conflicts", [])),
+        verdicts=tuple(state.get("verdicts", [])),
+        missing_entities=tuple(state.get("missing_entities", [])),
+    )
+
+
+def abstain_reason(state: ResearchState, findings: Findings) -> str | None:
+    """Why the run must abstain instead of writing a report, if it must."""
+    if not state.get("evidence"):
+        return "no evidence"
+    if findings.verdicts and not any(v.sufficient for v in findings.verdicts):
+        return "no sub-question has sufficient evidence"
+    if findings.missing_entities and state["profile"].kind in FOCUSED_KINDS:
+        return f"the corpus never mentions {', '.join(findings.missing_entities)}"
+    return None
+
+
 async def synthesize(state: ResearchState, *, runtime: Runtime[AgentContext]) -> dict[str, Any]:
     ctx = runtime.context
     profile_ = state["profile"]
     plan = state["plan"]
     evidence = state.get("evidence", [])
-    if not evidence:
-        report = abstention_report(state["question"], profile_.language, plan)
-        return {"report": report, "_detail": {"generated_by": "rules", "abstained": True}}
+    findings = findings_of(state)
+    if reason := abstain_reason(state, findings):
+        report = abstention_report(
+            state["question"], profile_.language, plan, findings.missing_entities
+        )
+        return {"report": report, "_detail": {"generated_by": "rules", "abstained": reason}}
     detail: dict[str, Any] = {}
     if ctx.llm is not None:
-        covered = {e.sub_question_id for e in evidence}
-        insufficient = [sq.id for sq in plan.sub_questions if sq.id not in covered]
         try:
             report, stats, trimmed = await llm_report(
                 state["question"],
@@ -338,7 +499,7 @@ async def synthesize(state: ResearchState, *, runtime: Runtime[AgentContext]) ->
                 plan,
                 evidence,
                 state.get("calculations", []),
-                insufficient,
+                findings,
                 llm=ctx.llm,
                 budget=ctx.budget,
                 max_output_tokens=ctx.max_output_tokens,
@@ -348,7 +509,7 @@ async def synthesize(state: ResearchState, *, runtime: Runtime[AgentContext]) ->
             return {"report": report, "_detail": detail}
         except (LLMError, BudgetExceeded) as exc:
             detail = {"llm_fallback": f"{type(exc).__name__}: {exc}"}
-    report = extractive_report(state["question"], profile_, plan, evidence)
+    report = extractive_report(state["question"], profile_, plan, evidence, findings)
     return {"report": report, "_detail": {"generated_by": "rules", **detail}}
 
 
@@ -373,6 +534,10 @@ def build_graph() -> CompiledStateGraph[ResearchState, AgentContext, ResearchSta
     graph.add_node("planner", traced("planner", planner))
     graph.add_node("search_worker", search_worker)
     graph.add_node("collect", traced("collect", collect))
+    graph.add_node("assess_sources", traced("assess_sources", assess_sources))
+    graph.add_node("extract_claims", traced("extract_claims", extract_claims))
+    graph.add_node("check_sufficiency", traced("check_sufficiency", check_sufficiency))
+    graph.add_node("detect_conflicts", traced("detect_conflicts", detect_conflicts))
     graph.add_node("analyze", traced("analyze", analyze))
     graph.add_node("synthesize", traced("synthesize", synthesize))
     graph.add_node("finalize", traced("finalize", finalize))
@@ -385,7 +550,13 @@ def build_graph() -> CompiledStateGraph[ResearchState, AgentContext, ResearchSta
     graph.add_edge("profile", "planner")
     graph.add_conditional_edges("planner", dispatch_searches, ["search_worker", "collect"])
     graph.add_edge("search_worker", "collect")
-    graph.add_conditional_edges("collect", after_collect, ["search_worker", "analyze"])
+    graph.add_edge("collect", "assess_sources")
+    graph.add_edge("assess_sources", "extract_claims")
+    graph.add_edge("extract_claims", "check_sufficiency")
+    graph.add_conditional_edges(
+        "check_sufficiency", after_sufficiency, ["search_worker", "detect_conflicts"]
+    )
+    graph.add_edge("detect_conflicts", "analyze")
     graph.add_edge("analyze", "synthesize")
     graph.add_edge("synthesize", "finalize")
     graph.add_edge("finalize", END)

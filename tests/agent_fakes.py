@@ -13,7 +13,14 @@ from researchai.corpus.models import Language, SourceType, Topic
 from researchai.mcp_client.client import ToolCallError, ToolCallRecord
 from researchai.tools.calculator import evaluate
 from researchai.tools.errors import ErrorCode
-from researchai.tools.schemas import CalculationResponse, SearchHit, SearchResponse
+from researchai.tools.schemas import (
+    CalculationResponse,
+    MetadataResponse,
+    SearchHit,
+    SearchMode,
+    SearchResponse,
+    SourceMetadata,
+)
 
 
 def hit(
@@ -76,11 +83,18 @@ class FakeTools:
 
     corpus: list[SearchHit] = field(default_factory=lambda: [CHARGING, TARIFF, CONSUMPTION, VAT])
     fail_with: ErrorCode | None = None
+    metadata_error: ErrorCode | None = None
+    keyword_error: ErrorCode | None = None
     calls: list[ToolCallRecord] = field(default_factory=list)
     topics: list[Topic | None] = field(default_factory=list)
 
     async def search_corpus(
-        self, query: str, *, top_k: int = 8, topic: Topic | None = None
+        self,
+        query: str,
+        *,
+        top_k: int = 8,
+        mode: SearchMode = "hybrid",
+        topic: Topic | None = None,
     ) -> SearchResponse:
         self.topics.append(topic)
         if self.fail_with is not None:
@@ -88,12 +102,46 @@ class FakeTools:
                 ToolCallRecord("search_corpus", {"query": query}, False, self.fail_with, 1.0)
             )
             raise ToolCallError("search_corpus", self.fail_with, "fake failure")
-        words = {w.strip("?.,").casefold() for w in query.split() if len(w) > 3}
-        hits = [
-            h for h in self.corpus if words & {w.strip(".,:").casefold() for w in h.text.split()}
-        ]
+        if mode == "keyword" and self.keyword_error is not None:
+            raise ToolCallError("search_corpus", self.keyword_error, "fake failure")
+        if mode == "keyword":  # entity checks: literal containment
+            hits = [h for h in self.corpus if query.casefold() in h.text.casefold()]
+        else:
+            words = {w.strip("?.,").casefold() for w in query.split() if len(w) > 3}
+            hits = [
+                h
+                for h in self.corpus
+                if words & {w.strip(".,:").casefold() for w in h.text.split()}
+            ]
         self.calls.append(ToolCallRecord("search_corpus", {"query": query}, True, None, 1.0))
-        return SearchResponse(query=query, mode="hybrid", hits=hits[:top_k])
+        return SearchResponse(query=query, mode=mode, hits=hits[:top_k])
+
+    async def get_source_metadata(self, doc_ids: list[str]) -> MetadataResponse:
+        if self.metadata_error is not None:
+            raise ToolCallError("get_source_metadata", self.metadata_error, "fake failure")
+        self.calls.append(
+            ToolCallRecord("get_source_metadata", {"doc_ids": doc_ids}, True, None, 1.0)
+        )
+        known = {h.doc_id: h for h in self.corpus}
+        return MetadataResponse(
+            sources=[
+                SourceMetadata(
+                    doc_id=d,
+                    title=known[d].title,
+                    url=f"https://x.invalid/{d}",
+                    publisher=known[d].publisher,
+                    source_type=known[d].source_type,
+                    published=known[d].published,
+                    snapshot=date(2026, 9, 1),
+                    language=known[d].language,
+                    topic=known[d].topic,
+                    synthetic=True,
+                )
+                for d in doc_ids
+                if d in known
+            ],
+            missing=[d for d in doc_ids if d not in known],
+        )
 
     async def calculate(self, expression: str) -> CalculationResponse:
         self.calls.append(ToolCallRecord("calculate", {"expression": expression}, True, None, 1.0))
