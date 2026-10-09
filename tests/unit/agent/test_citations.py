@@ -280,3 +280,48 @@ async def test_sentences_without_citations_are_not_checked() -> None:
 
 def test_dates_are_plain() -> None:
     assert isinstance(date(2026, 1, 1), date)
+
+
+async def test_judgement_ids_are_matched_leniently() -> None:
+    rep = report(
+        [claim("Georgia has 512 public chargers in total.", cite("ev-en-0013", CHARGING_QUOTE))]
+    )
+    llm = ScriptedLLM(
+        {
+            "Judgements": [
+                always({"judgements": [{"id": " [s0.0] ", "label": "supported", "reason": "ok"}]})
+            ]
+        }
+    )
+    _, summary = await run(rep, llm=llm)
+    assert (summary.supported, summary.entailment) == (1, "llm")
+
+
+async def test_duplicate_statements_are_judged_once() -> None:
+    sentence = claim(
+        "Georgia has 512 public chargers in total.", cite("ev-en-0013", CHARGING_QUOTE)
+    )
+    rep = report([sentence], summary=[sentence])
+    llm = ScriptedLLM(
+        {"Judgements": [always({"judgements": [{"id": "S0", "label": "partial", "reason": "r"}]})]}
+    )
+    cleaned, summary = await run(rep, llm=llm)
+    prompt = llm.requests[0][1][1]["content"]
+    assert prompt.count("Statement:") == 1
+    assert (summary.partial, summary.entailment) == (2, "llm")
+    assert all(check.method == "llm" for check in summary.flagged)
+    assert cleaned.summary[0].support == cleaned.sections[0].sentences[0].support == "partial"
+
+
+async def test_conflicting_judgements_keep_the_most_severe() -> None:
+    rep = report(
+        [claim("Georgia has 512 public chargers in total.", cite("ev-en-0013", CHARGING_QUOTE))]
+    )
+    llm = ScriptedLLM({"Judgements": [always({"judgements": [
+        {"id": "S0.0", "label": "not_supported", "reason": "first"},
+        {"id": "S0.0", "label": "partial", "reason": "second"},
+        {"id": "S0.0", "label": "supported", "reason": "third"},
+    ]})]})  # fmt: skip
+    _, summary = await run(rep, llm=llm)
+    assert summary.unsupported == 1
+    assert summary.removed[0].reason == "first"
