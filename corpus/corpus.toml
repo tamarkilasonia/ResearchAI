@@ -1,0 +1,4 @@
+# Frozen research corpus. Any change to a document requires a version bump and
+# `python -m researchai.corpus manifest --write` (tests fail otherwise).
+version = "1.0.0"
+snapshot = 2026-09-01

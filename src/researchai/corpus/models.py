@@ -34,6 +34,7 @@ class SourceType(StrEnum):
     INDUSTRY_REPORT = "industry_report"
     ACADEMIC = "academic"
     NGO = "ngo"
+    COMPANY = "company"  # operator pages, e.g. a charging network
     DEALER = "dealer"
     BLOG = "blog"
     FORUM = "forum"
