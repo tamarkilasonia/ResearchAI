@@ -103,3 +103,20 @@ def test_exhaustion_is_recorded_once() -> None:
 
 def test_dates_are_plain_dates() -> None:
     assert isinstance(date(2026, 1, 1), date)
+
+
+def test_follow_up_check_records_the_limiting_budget() -> None:
+    rounds = RunBudget(LIMITS)
+    rounds.start_iteration()
+    rounds.start_iteration()
+    assert not rounds.can_follow_up()
+    assert rounds.exhausted == ["iterations"]
+    searches = RunBudget(LIMITS)
+    searches.start_iteration()
+    searches.reserve_searches(3)
+    assert not searches.can_follow_up()
+    assert searches.exhausted == ["searches"]
+    fresh = RunBudget(LIMITS)
+    fresh.start_iteration()
+    assert fresh.can_follow_up()
+    assert fresh.exhausted == []

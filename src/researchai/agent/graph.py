@@ -72,6 +72,7 @@ class AgentContext:
     llm: LLMClient | None
     budget: RunBudget
     max_output_tokens: int
+    max_evidence_tokens: int = 4000
 
 
 class ResearchState(TypedDict, total=False):
@@ -267,11 +268,7 @@ async def collect(state: ResearchState, *, runtime: Runtime[AgentContext]) -> di
     covered = {e.sub_question_id for e in evidence}
     empty = [sq.id for sq in plan.sub_questions if sq.id not in covered]
     budget = runtime.context.budget
-    retry = (
-        bool(empty)
-        and budget.iterations < budget.limits.max_iterations
-        and budget.searches_left > 0
-    )
+    retry = bool(empty) and budget.can_follow_up()
     pending: list[str] = []
     new_plan = plan
     if retry:
@@ -345,6 +342,7 @@ async def synthesize(state: ResearchState, *, runtime: Runtime[AgentContext]) ->
                 llm=ctx.llm,
                 budget=ctx.budget,
                 max_output_tokens=ctx.max_output_tokens,
+                max_evidence_tokens=ctx.max_evidence_tokens,
             )
             detail = {"generated_by": "llm", "trimmed_evidence": trimmed, **stats.__dict__}
             return {"report": report, "_detail": detail}

@@ -75,6 +75,16 @@ class RunBudget:
             raise self._exhaust("iterations", f"iteration cap {self.limits.max_iterations}")
         self.iterations += 1
 
+    def can_follow_up(self) -> bool:
+        """Whether another search round is allowed; records the budget that says no."""
+        if self.iterations >= self.limits.max_iterations:
+            self._exhaust("iterations", "no search rounds left for missing evidence")
+            return False
+        if self.searches_left == 0:
+            self._exhaust("searches", "no searches left for missing evidence")
+            return False
+        return True
+
     def check_tokens(self, estimated_prompt: int, max_output: int) -> None:
         worst_case = self.tokens + estimated_prompt + max_output
         if worst_case > self.limits.max_tokens:
