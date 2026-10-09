@@ -6,7 +6,7 @@ tools, detects conflicting and outdated sources, and writes a report in which
 every factual claim cites a document and a supporting span. When evidence is
 missing it abstains instead of guessing.
 
-Status: under construction (phase 3 of 13: MCP tool server).
+Status: under construction (phase 4 of 13: agent core).
 
 ## Development
 
@@ -62,5 +62,42 @@ against an index built with a different embedding model.
 ```bash
 uv run python -m researchai.mcp_server   # serves http://127.0.0.1:8765/mcp
 ```
+
+## Agent (LangGraph)
+
+```
+validate_input -> input_guard -> profile -> planner
+  -> search_worker x N (parallel, one per sub-question) <-+ follow-up round for
+  -> collect --------------------------------------------+ sub-questions without evidence
+  -> analyze (calculations via MCP) -> synthesize -> finalize
+```
+
+- **Rules first, LLM where rules are unsure.** Profiling (language, topic, question
+  kind) is rule-based. With `LLM_PROVIDER=none` the planner uses an aspect catalogue
+  and the writer copies the best-matching sentences verbatim, each cited with its
+  exact span: an offline baseline that cannot invent facts, and also cannot reason,
+  compute or recommend (its reports say so). With an LLM, plans and reports are
+  validated JSON; any LLM failure falls back to the rule path and is recorded.
+- **Citations are anchored.** Quotes the LLM cites are located in the cited passage
+  (exact, then whitespace/case-insensitive); claims whose citations point at unknown
+  evidence are dropped, never shown unsupported.
+- **Calculations are grounded.** The LLM may propose arithmetic, but it only runs if
+  every operand appears in the evidence it cites (English and Georgian number
+  formats); the MCP `calculate` tool computes the result.
+- **Budgets** (all configurable): searches per run, search rounds, LLM tokens
+  (checked before every call), sub-questions, wall-clock timeout. Exhausted budgets
+  degrade the run and are reported; they never crash it.
+- **No answer without evidence.** Off-corpus questions abstain; a tool backend
+  failure ends the run as `failed`.
+
+```bash
+uv run python -m researchai.mcp_server &                    # tools on :8765
+uv run python -m researchai.agent "How many public charging points are there?"
+LLM_PROVIDER=ollama uv run python -m researchai.agent --json "..."  # full trace
+```
+
+For Ollama, start the server with a context window at least `LLM_CONTEXT_TOKENS`
+(`OLLAMA_CONTEXT_LENGTH=16384 ollama serve`); the default window is smaller and
+would silently truncate prompts.
 
 License: MIT
