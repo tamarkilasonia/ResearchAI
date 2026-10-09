@@ -41,7 +41,9 @@ from researchai.agent.prompts import WRITER_SYSTEM, writer_user
 from researchai.agent.verification import (
     Findings,
     conflict_sentence,
+    drop_superseded_claims,
     ensure_conflicts_reported,
+    insufficient_sentence,
     missing_sentence,
 )
 from researchai.corpus.models import Language
@@ -58,8 +60,6 @@ TEXT = {
         "title": "Research report: {question}",
         "scope": "This report answers {n} sub-questions using {m} passages from {d} documents "
         "of the frozen research corpus.",
-        "insufficient": "Insufficient evidence: the corpus does not contain information on this "
-        "point.",
         "insufficient_summary": "Evidence was insufficient for: {items}.",
         "no_recommendation": "This baseline does not form a recommendation; weigh the cited "
         "points above against your own situation.",
@@ -70,7 +70,6 @@ TEXT = {
         "title": "კვლევის ანგარიში: {question}",
         "scope": "ანგარიში პასუხობს {n} ქვეკითხვას კვლევის კორპუსის {d} დოკუმენტის {m} "
         "ფრაგმენტზე დაყრდნობით.",
-        "insufficient": "არასაკმარისი მონაცემები: კორპუსში ამ საკითხზე ინფორმაცია არ არის.",
         "insufficient_summary": "მონაცემები არასაკმარისი იყო შემდეგ საკითხებზე: {items}.",
         "no_recommendation": "ეს საბაზისო ვერსია რეკომენდაციას არ აყალიბებს; შეაფასეთ ზემოთ "
         "მოყვანილი ფაქტები თქვენი სიტუაციის მიხედვით.",
@@ -180,7 +179,7 @@ def _scope_sentence(
 
 
 def _insufficient(language: Language) -> ReportSentence:
-    return ReportSentence(text=TEXT[language]["insufficient"], kind="insufficient_evidence")
+    return insufficient_sentence(language)
 
 
 def extractive_report(
@@ -291,6 +290,7 @@ class AnchorStats:
     unknown_calculations: int = 0
     templated_insufficient: int = 0
     templated_conflicts: int = 0
+    superseded_dropped: int = 0
 
 
 def _convert_sentence(
@@ -425,7 +425,7 @@ async def llm_report(
             fitted,
             calculations,
             insufficient=findings.insufficient(plan, evidence),
-            conflicts=findings.conflicts,
+            conflicts=findings.reportable_conflicts(),
             claims=findings.claims,
             missing=findings.missing_entities,
             quality=findings.quality(),
@@ -434,6 +434,7 @@ async def llm_report(
         max_tokens=max_output_tokens,
     )
     report, stats = from_llm_report(result.value, profile, plan, fitted, calculations)
+    report, stats.superseded_dropped = drop_superseded_claims(report, findings)
     report, stats.templated_conflicts = ensure_conflicts_reported(report, findings, evidence)
     if findings.missing_entities:
         report = report.model_copy(

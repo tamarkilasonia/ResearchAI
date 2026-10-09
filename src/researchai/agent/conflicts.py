@@ -30,6 +30,7 @@ from researchai.agent.budget import BudgetExceeded, RunBudget
 from researchai.agent.llm import LLMClient, LLMError, structured_call
 from researchai.agent.models import Claim, Conflict, ConflictKind, Evidence, NumericFact
 from researchai.agent.prompts import CONFLICT_SYSTEM, conflict_user
+from researchai.textutil import DOMAIN_COMMON
 
 MIN_SUBJECT_OVERLAP = 0.5
 MIN_SHARED_TERMS = 2
@@ -54,17 +55,6 @@ DISCRIMINATORS = frozenset(
         "dc", "ac", "fast", "home", "public", "new", "used", "hybrid", "hybrids", "diesel",
         "petrol", "premium", "winter", "summer", "heat", "pump", "micro", "vat", "excise",
         "regions", "kartli", "grid",
-    }
-)  # fmt: skip
-
-
-# Words shared by most statements in this corpus; they say nothing about whether
-# two statements concern the same quantity ("car", "electric", "Georgia", "year").
-DOMAIN_COMMON = frozenset(
-    {
-        "electric", "car", "vehicl", "vehicle", "georgia", "georgian", "year", "month", "typical",
-        "typically", "about", "around", "average", "also", "mid", "end", "first", "last", "report",
-        "according", "passeng", "passenger", "market", "ელექტრომობილ", "საქართველო", "წლი",
     }
 )  # fmt: skip
 
