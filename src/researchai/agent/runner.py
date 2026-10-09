@@ -75,6 +75,7 @@ class ResearchAgent:
             missing_entities=state.get("missing_entities", []),
             calculations=state.get("calculations", []),
             report=state.get("report") if status is None else None,
+            citation_report=state.get("citation_report") if status is None else None,
             reason=reason or state.get("reason"),
             trace=state.get("trace", []),
             tool_calls=[
