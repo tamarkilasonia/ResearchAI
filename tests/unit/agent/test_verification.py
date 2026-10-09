@@ -219,3 +219,23 @@ def test_a_section_left_with_only_superseded_claims_says_insufficient() -> None:
     (sentence,) = cleaned.sections[0].sentences
     assert sentence.kind == "insufficient_evidence"
     assert cleaned.insufficient == ["sq1"]
+
+
+def test_generic_only_relevance_terms_report_nothing() -> None:
+    generic = Findings(
+        claims=FINDINGS.claims,
+        conflicts=FINDINGS.conflicts,
+        relevance_terms=(("sq1", frozenset({"electric", "car", "georgia"})),),
+    )
+    assert generic.reportable_conflicts() == []
+
+
+def test_contradictions_supersede_nothing_and_dangling_ids_are_ignored() -> None:
+    (outdated,) = CONFLICTS
+    contradiction = outdated.model_copy(update={"kind": "contradiction"})
+    assert Findings(claims=FINDINGS.claims, conflicts=(contradiction,)).superseded_ranges() == {}
+    dangling = outdated.model_copy(update={"others": ["K999"]})
+    assert Findings(claims=FINDINGS.claims, conflicts=(dangling,)).superseded_ranges() == {}
+    claims = {c.id: c for c in CLAIMS}
+    sentence = conflict_sentence(contradiction, claims, {e.id: e for e in EVIDENCE}, Language.EN)
+    assert not sentence.text.endswith("The newer figure is used in this report.")
