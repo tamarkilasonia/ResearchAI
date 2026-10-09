@@ -54,3 +54,10 @@ def anchor_quote(evidence: Evidence, quote: str) -> tuple[int, int] | None:
     start = mapping[position]
     end = mapping[position + len(needle) - 1] + 1
     return evidence.char_start + start, evidence.char_start + end
+
+
+def normalized(text: str) -> str:
+    """Comparison form: NFKC, typographic quotes folded, casefolded, single spaces,
+    and outer table pipes removed (so a quoted table row matches its prose form)."""
+    folded, _ = _normalize_with_map(text)
+    return folded.strip("| ").strip()
