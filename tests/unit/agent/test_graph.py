@@ -60,6 +60,7 @@ async def test_iteration_cap_stops_follow_up_rounds() -> None:
     )
     assert result.usage.iterations == 1
     assert result.status is RunStatus.ABSTAINED
+    assert result.budget_exhausted == ["iterations"]
 
 
 async def test_search_budget_caps_parallel_fan_out() -> None:
@@ -75,6 +76,7 @@ async def test_search_budget_exhaustion_is_reported_in_follow_up_rounds() -> Non
     result = await agent(FakeTools(corpus=[]), max_searches=1).run("What is the capital of France?")
     assert result.usage.searches == 1
     assert result.usage.iterations == 1  # no budget left for a second round
+    assert result.budget_exhausted == ["searches"]
 
 
 async def test_rejects_invalid_input_without_calling_tools() -> None:
