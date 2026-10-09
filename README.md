@@ -6,7 +6,7 @@ tools, detects conflicting and outdated sources, and writes a report in which
 every factual claim cites a document and a supporting span. When evidence is
 missing it abstains instead of guessing.
 
-Status: under construction (phase 5 of 13: verification).
+Status: under construction (phase 6 of 13: citation verification).
 
 ## Development
 
@@ -70,7 +70,8 @@ validate_input -> input_guard -> profile -> planner
   -> search_worker x N (parallel)  <-----------------------------------+
   -> collect -> assess_sources -> extract_claims -> check_sufficiency  |
        (insufficient sub-questions and budget left: follow-up round) --+
-  -> detect_conflicts -> analyze (calculations via MCP) -> synthesize -> finalize
+  -> detect_conflicts -> analyze (calculations via MCP) -> synthesize
+  -> verify_citations -> finalize
 ```
 
 - **Rules first, LLM where rules are unsure.** Profiling (language, topic, question
@@ -114,6 +115,25 @@ validate_input -> input_guard -> profile -> planner
 - **Guarantees in every report:** each detected conflict is stated with both
   sides cited (added from a template if the LLM leaves it out), and superseded
   values are never presented as current facts.
+
+### Citation verification
+
+Every cited sentence is checked before the user sees the report
+(`verify_citations`, between `synthesize` and `finalize`):
+
+1. **Spans:** each cited document is re-fetched through MCP and the cited span
+   must equal the quote. Unverifiable citations are dropped; a sentence left
+   without one is removed as *unsupported*.
+2. **Numbers:** every number in the sentence must appear in its cited spans, a
+   cited calculation or the question. Found only in another passage, the
+   sentence is *misattributed*; found nowhere, *unsupported*. Both are removed.
+3. **Entailment** (only for non-verbatim sentences): one batched LLM judgement
+   (supported / partial / not supported), or lexical coverage offline. Partially
+   supported sentences stay, marked as such.
+
+Each result carries a `citation_report`: citation precision (citations whose
+span is verified and supports the sentence), counts per verdict, and the
+removed and flagged sentences with reasons.
 
 ```bash
 uv run python -m researchai.mcp_server &                    # tools on :8765

@@ -21,6 +21,7 @@ from researchai.agent.render import render_markdown
 from researchai.corpus.models import Language, SourceType
 from researchai.mcp_client.client import ResearchTools
 from researchai.mcp_server.server import ToolServices, build_server
+from researchai.tools.schemas import DocumentResponse
 from tests.agent_fakes import CHARGING
 from tests.support import make_settings
 from tests.unit.test_mcp_server import FakeDocuments
@@ -95,7 +96,17 @@ def test_cli_runs_against_mcp(
 
             return SearchResponse(query=query, mode="hybrid", hits=[CHARGING])
 
-    server = build_server(ToolServices(search=Search(), documents=FakeDocuments()))
+    class Documents(FakeDocuments):
+        async def fetch(
+            self, doc_id: str, *, start: int | None = None, end: int | None = None
+        ) -> DocumentResponse:
+            body = " " * CHARGING.char_start + CHARGING.text  # the passage at its real offset
+            meta = (await super().fetch("ev-en-0013")).metadata
+            return DocumentResponse(
+                metadata=meta, text=body, char_start=0, char_end=len(body), length=len(body)
+            )
+
+    server = build_server(ToolServices(search=Search(), documents=Documents()))
     monkeypatch.setattr(agent_cli, "ResearchTools", lambda *_args: ResearchTools(server))
     argv = ["How many public charging points are there?"] + (["--json"] if as_json else [])
     assert agent_cli.main(argv, settings=make_settings()) == 0
@@ -103,3 +114,32 @@ def test_cli_runs_against_mcp(
     assert marker in out
     if as_json:
         assert json.loads(out)["status"] == "answered"
+
+
+def test_markdown_shows_partial_support_and_citation_precision() -> None:
+    from researchai.agent.models import CitationReport, SentenceCheck
+
+    base = result()
+    assert base.report is not None
+    flagged_sentence = (
+        base.report.sections[0].sentences[0].model_copy(update={"support": "partial"})
+    )
+    section = base.report.sections[0].model_copy(
+        update={"sentences": [flagged_sentence, *base.report.sections[0].sentences[1:]]}
+    )
+    removed = SentenceCheck(text="x", kind="claim", sub_question_id="sq1", status="unsupported",
+                            method="llm", reason="r")  # fmt: skip
+    checks = CitationReport(
+        sentences_checked=4, citations_total=5, citations_verified=4, precision=0.6, verbatim=1,
+        supported=1, partial=1, unsupported=1, misattributed=0, entailment="llm", removed=[removed],
+    )  # fmt: skip
+    markdown = render_markdown(
+        base.model_copy(
+            update={
+                "report": base.report.model_copy(update={"sections": [section]}),
+                "citation_report": checks,
+            }
+        )
+    )
+    assert "There are 512 points. [1] *(partially supported by its sources)*" in markdown
+    assert "citation precision 60% · unsupported sentences removed: 1" in markdown
