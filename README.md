@@ -6,7 +6,7 @@ tools, detects conflicting and outdated sources, and writes a report in which
 every factual claim cites a document and a supporting span. When evidence is
 missing it abstains instead of guessing.
 
-Status: under construction (phase 4 of 13: agent core).
+Status: under construction (phase 5 of 13: verification).
 
 ## Development
 
@@ -67,9 +67,10 @@ uv run python -m researchai.mcp_server   # serves http://127.0.0.1:8765/mcp
 
 ```
 validate_input -> input_guard -> profile -> planner
-  -> search_worker x N (parallel, one per sub-question) <-+ follow-up round for
-  -> collect --------------------------------------------+ sub-questions without evidence
-  -> analyze (calculations via MCP) -> synthesize -> finalize
+  -> search_worker x N (parallel)  <-----------------------------------+
+  -> collect -> assess_sources -> extract_claims -> check_sufficiency  |
+       (insufficient sub-questions and budget left: follow-up round) --+
+  -> detect_conflicts -> analyze (calculations via MCP) -> synthesize -> finalize
 ```
 
 - **Rules first, LLM where rules are unsure.** Profiling (language, topic, question
@@ -89,6 +90,30 @@ validate_input -> input_guard -> profile -> planner
   degrade the run and are reported; they never crash it.
 - **No answer without evidence.** Off-corpus questions abstain; a tool backend
   failure ends the run as `failed`.
+
+### Verification (rules first, LLM where rules are unsure)
+
+- **Source assessment:** reliability by source type (official > industry/NGO >
+  news > dealer > blog > forum) and freshness at the corpus snapshot date (via
+  the MCP `get_source_metadata` tool). Evidence is re-ranked so current official
+  sources come first.
+- **Claim extraction:** every number in the evidence becomes a fact with unit,
+  range, as-of period, exact span, subject and directional threshold labels
+  (`<=101 kWh`, `>500000 GEL`). Table cells take their unit from the header.
+- **Conflict detection:** directly comparable facts from different documents
+  (same unit, labels, places/models/qualifiers, overlapping subject) with
+  different values become *outdated* (an older value superseded by a newer
+  source) or *contradiction* (same period). Forecasts ("by 2030") never count
+  as current values. With an LLM, disagreements without numbers ("VAT applies"
+  vs "exempt") are flagged too, with verbatim quotes that must anchor.
+- **Sufficiency:** a sub-question needs a relevant passage from a reliable
+  source or two independent documents; otherwise a follow-up round runs (within
+  budget) or the report says *insufficient evidence*. Names in the question the
+  corpus never mentions ("Japan") are confirmed by a keyword search; a focused
+  question about them abstains.
+- **Guarantees in every report:** each detected conflict is stated with both
+  sides cited (added from a template if the LLM leaves it out), and superseded
+  values are never presented as current facts.
 
 ```bash
 uv run python -m researchai.mcp_server &                    # tools on :8765
