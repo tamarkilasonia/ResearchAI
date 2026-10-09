@@ -6,7 +6,7 @@ tools, detects conflicting and outdated sources, and writes a report in which
 every factual claim cites a document and a supporting span. When evidence is
 missing it abstains instead of guessing.
 
-Status: under construction (phase 2 of 13: corpus and ingestion).
+Status: under construction (phase 3 of 13: MCP tool server).
 
 ## Development
 
@@ -40,5 +40,27 @@ EMBEDDING_PROVIDER=ollama uv run python -m researchai.corpus ingest
 The default `LLM_PROVIDER=none` runs fully offline, so tests and CI need no
 model and no API key. Skipped tests fail the run (set `ALLOW_SKIPS=1` to opt
 out locally); infrastructure tests are deselected with `-m integration` instead.
+
+## Tools (MCP)
+
+The agent reaches data only through an MCP server (streamable HTTP); a test
+fails if agent-side code imports the database or tool implementations.
+
+| Tool | What it does |
+|---|---|
+| `search_corpus` | Hybrid search: pgvector cosine + PostgreSQL full text, fused with reciprocal rank fusion. Returns passages with document ids and exact character spans; filters by language, topic, date and source type. |
+| `fetch_document` | Full text or a `[start, end)` span of a document, with metadata. |
+| `get_source_metadata` | Publisher, source type, dates, URL and language for up to 20 documents. |
+| `calculate` | Safe arithmetic (AST allow-list, size limits), e.g. cost per 100 km. |
+| `live_web_search` | Optional SearxNG search. Off by default and not even registered unless `LIVE_WEB_SEARCH_ENABLED=true`; never used in evaluation. |
+
+Failures carry stable codes (`INVALID_ARGUMENT`, `NOT_FOUND`, `INDEX_NOT_READY`,
+`BACKEND_UNAVAILABLE`, `DIVISION_BY_ZERO`, ...) and never a stack trace.
+Retrieved text is marked `content_trust: "untrusted"`. Search refuses to run
+against an index built with a different embedding model.
+
+```bash
+uv run python -m researchai.mcp_server   # serves http://127.0.0.1:8765/mcp
+```
 
 License: MIT
