@@ -32,9 +32,16 @@ TEST_DIM = 64
 _BASE_URL = make_url(
     os.environ.get("DATABASE_URL") or str(Settings.model_fields["database_url"].default)
 )
-TEST_DATABASE_URL = _BASE_URL.set(database=f"{_BASE_URL.database}_test").render_as_string(
-    hide_password=False
-)
+
+
+def scratch_database_url(suffix: str = "_test") -> str:
+    """URL of a throwaway database next to the configured one."""
+    return _BASE_URL.set(database=f"{_BASE_URL.database}{suffix}").render_as_string(
+        hide_password=False
+    )
+
+
+TEST_DATABASE_URL = scratch_database_url()
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
@@ -44,7 +51,7 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
             item.add_marker(pytest.mark.integration)
 
 
-async def _ensure_database(url: str) -> None:
+async def ensure_database(url: str) -> None:
     target = make_url(url)
     admin = create_async_engine(
         target.set(database="postgres"), isolation_level="AUTOCOMMIT", poolclass=NullPool
@@ -63,7 +70,7 @@ async def _ensure_database(url: str) -> None:
 
 @pytest.fixture(scope="session")
 def database_url() -> str:
-    asyncio.run(_ensure_database(TEST_DATABASE_URL))
+    asyncio.run(ensure_database(TEST_DATABASE_URL))
     return TEST_DATABASE_URL
 
 
