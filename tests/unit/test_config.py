@@ -76,3 +76,16 @@ def test_get_settings_is_cached() -> None:
         assert get_settings() is get_settings()
     finally:
         get_settings.cache_clear()
+
+
+def test_live_web_search_requires_url() -> None:
+    with pytest.raises(ValidationError, match="LIVE_WEB_SEARCH_URL"):
+        make(live_web_search_enabled="true")
+    assert make(live_web_search_enabled="true", live_web_search_url="http://searx:8080")
+
+
+def test_mcp_allowed_hosts_are_split() -> None:
+    settings = make(mcp_allowed_hosts=" mcp-server:* , localhost:*,, ")
+    assert settings.mcp_allowed_host_list == ["mcp-server:*", "localhost:*"]
+    with pytest.raises(ValidationError):
+        make(mcp_server_url="mcp-server:8765/mcp")

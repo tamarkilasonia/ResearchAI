@@ -1,6 +1,7 @@
 # Local stack. Copy .env.example to .env first (compose reads it automatically).
-# `init` migrates the schema and ingests the frozen corpus, then exits; the
-# backend starts only after it succeeded. The MCP server comes in phase 3.
+# `init` migrates the schema and ingests the frozen corpus, then exits.
+# `mcp-server` serves the research tools on the internal network only (no
+# published port); the backend reaches it at http://mcp-server:8765/mcp.
 
 name: researchai
 
@@ -33,10 +34,33 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-researchai}:${POSTGRES_PASSWORD:-researchai}@db:5432/${POSTGRES_DB:-researchai}
       LLM_BASE_URL: ${LLM_BASE_URL_DOCKER:-http://host.docker.internal:11434/v1}
       EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL_DOCKER:-http://host.docker.internal:11434/v1}
+      MCP_SERVER_URL: http://mcp-server:8765/mcp
     depends_on:
       db:
         condition: service_healthy
     restart: "no"
+    networks: [internal]
+
+  mcp-server:
+    build: .
+    command: ["python", "-m", "researchai.mcp_server"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      <<: *app-env
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: "8765"
+      MCP_ALLOWED_HOSTS: "mcp-server:*,localhost:*,127.0.0.1:*"
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8765/health', timeout=2).status == 200 else 1)"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    # No `ports:` on purpose: the tool server is not reachable from the host.
     networks: [internal]
 
   backend:
@@ -46,8 +70,8 @@ services:
         required: false
     environment: *app-env
     depends_on:
-      init:
-        condition: service_completed_successfully
+      mcp-server:
+        condition: service_healthy
     ports:
       - "127.0.0.1:${API_HOST_PORT:-8100}:8000"
     networks: [internal]
