@@ -16,8 +16,6 @@ Fusion
 
 from __future__ import annotations
 
-import re
-import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date
@@ -28,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from researchai.corpus.embeddings import Embedder
 from researchai.corpus.models import Language, SourceType, Topic
 from researchai.db.models import ChunkRow, CorpusBuildRow, DocumentRow
+from researchai.textutil import keyword_terms
 from researchai.tools.errors import ErrorCode, ToolFailure
 from researchai.tools.schemas import (
     MAX_QUERY_CHARS,
@@ -39,118 +38,6 @@ from researchai.tools.schemas import (
 
 RRF_K = 60
 CANDIDATES_PER_LEG = 50
-MIN_TOKEN_CHARS = 2
-MIN_STEM_CHARS = 3
-MAX_KEYWORD_TERMS = 24
-
-# Longest first. English inflections, and Georgian plural/case endings
-# (plural -ებ-, genitive -ის, dative -ს, instrumental -ით, adverbial -ად,
-# postpositions -ში/-ზე/-თვის/-გან, nominative -ი and stem vowels).
-_EN_SUFFIXES = ("ingly", "ings", "ing", "ers", "ies", "es", "er", "ed", "s")
-_KA_SUFFIXES = (
-    "ებისთვის",
-    "ებისგან",
-    "ისთვის",
-    "ებით",
-    "ებში",
-    "ებზე",
-    "ებად",
-    "ების",
-    "ისგან",
-    "ები",
-    "ებს",
-    "ში",
-    "ზე",
-    "ის",
-    "ით",
-    "ად",
-    "ი",
-    "ს",
-    "ა",
-    "ე",
-    "ო",
-)
-
-_TOKEN = re.compile(r"\w+", re.UNICODE)
-
-STOP_WORDS = frozenset(
-    {
-        # English
-        "a",
-        "an",
-        "and",
-        "are",
-        "as",
-        "at",
-        "be",
-        "by",
-        "can",
-        "do",
-        "does",
-        "for",
-        "from",
-        "has",
-        "have",
-        "how",
-        "i",
-        "in",
-        "is",
-        "it",
-        "its",
-        "me",
-        "my",
-        "of",
-        "on",
-        "or",
-        "should",
-        "than",
-        "that",
-        "the",
-        "their",
-        "there",
-        "this",
-        "to",
-        "was",
-        "what",
-        "when",
-        "where",
-        "which",
-        "who",
-        "why",
-        "will",
-        "with",
-        "would",
-        "you",
-        "your",
-        "much",
-        "many",
-        "give",
-        "tell",
-        "about",
-        # Georgian
-        "და",
-        "არის",
-        "რა",
-        "რომ",
-        "თუ",
-        "ან",
-        "როგორ",
-        "რამდენი",
-        "რატომ",
-        "სად",
-        "როდის",
-        "ეს",
-        "ის",
-        "მაქვს",
-        "აქვს",
-        "უნდა",
-        "შეიძლება",
-        "კი",
-        "არა",
-        "რომელი",
-        "ვინ",
-    }
-)
 
 
 @dataclass(frozen=True)
@@ -178,29 +65,6 @@ class SearchFilters:
         if self.source_types:
             conditions.append(DocumentRow.source_type.in_([s.value for s in self.source_types]))
         return and_(true(), *conditions)
-
-
-def light_stem(token: str) -> str:
-    """Strip at most one known suffix, keeping at least ``MIN_STEM_CHARS``."""
-    suffixes = _EN_SUFFIXES if token.isascii() else _KA_SUFFIXES
-    for suffix in suffixes:
-        if token.endswith(suffix) and len(token) - len(suffix) >= MIN_STEM_CHARS:
-            return token[: -len(suffix)]
-    return token
-
-
-def keyword_terms(query: str) -> list[str]:
-    """Sanitised, de-duplicated prefix terms for ``to_tsquery('simple', ...)``."""
-    normalized = unicodedata.normalize("NFKC", query).casefold()
-    terms: list[str] = []
-    for token in _TOKEN.findall(normalized):
-        token = token.replace("_", "")
-        if len(token) < MIN_TOKEN_CHARS or token in STOP_WORDS:
-            continue
-        stem = light_stem(token)
-        if stem not in terms:
-            terms.append(stem)
-    return terms[:MAX_KEYWORD_TERMS]
 
 
 def to_tsquery_text(terms: Sequence[str]) -> str:
