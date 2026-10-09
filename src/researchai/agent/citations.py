@@ -131,6 +131,14 @@ def lexical_support(text: str, spans: Sequence[str]) -> SupportLevel | None:
     return None
 
 
+SEVERITY = {"supported": 0, "partial": 1, "not_supported": 2}
+
+
+def _judgement_key(raw: str) -> str:
+    """Models echo ids as shown ("[S0.1]") or reformat them ("s0.1 "): normalise."""
+    return raw.strip().strip("[]").strip().upper()
+
+
 class _Judgement(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str
@@ -196,6 +204,13 @@ async def _entail(
     """key -> (label, reason, method); labels: supported / partial / not_supported."""
     if not pending:
         return {}, "none"
+    # Identical statements with identical spans (a summary repeating a section) are
+    # judged once; models tend to skip exact duplicates.
+    groups: dict[tuple[str, tuple[str, ...]], list[_Pending]] = {}
+    for item in pending:
+        signature = (normalized(item.sentence.text), tuple(normalized(s) for s in item.spans))
+        groups.setdefault(signature, []).append(item)
+    representatives = [members[0] for members in groups.values()]
     verdicts: dict[str, tuple[str, str, Method]] = {}
     if llm is not None:
         try:
@@ -204,17 +219,26 @@ async def _entail(
                 budget,
                 system=ENTAILMENT_SYSTEM,
                 user=entailment_user(
-                    [(p.key, p.sentence.text, p.spans) for p in pending], calculations
+                    [(p.key, p.sentence.text, p.spans) for p in representatives], calculations
                 ),
                 schema=Judgements,
                 max_tokens=min(max_output_tokens, 1500),
             )
-            keys = {p.key for p in pending}
-            verdicts = {
-                j.id: (j.label, j.reason, "llm") for j in result.value.judgements if j.id in keys
-            }
+            keys = {p.key for p in representatives}
+            for judgement in result.value.judgements:
+                key = _judgement_key(judgement.id)
+                if key not in keys:
+                    continue
+                # A model may judge the same statement twice; keep the most severe label.
+                previous = verdicts.get(key)
+                if previous is None or SEVERITY[judgement.label] > SEVERITY[previous[0]]:
+                    verdicts[key] = (judgement.label, judgement.reason, "llm")
         except (LLMError, BudgetExceeded):
             verdicts = {}
+        for members in groups.values():
+            if members[0].key in verdicts:
+                for member in members[1:]:
+                    verdicts[member.key] = verdicts[members[0].key]
     for item in pending:
         if item.key not in verdicts:  # offline, failed call, or an item the model skipped
             level = lexical_support(item.sentence.text, item.spans)
