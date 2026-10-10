@@ -47,6 +47,7 @@ from researchai.agent.verification import (
     missing_sentence,
 )
 from researchai.corpus.models import Language
+from researchai.safety.documents import instruction_spans, overlaps
 from researchai.textutil import keyword_terms, sentence_spans
 
 SENTENCES_PER_SECTION = 2
@@ -113,10 +114,13 @@ def _candidates(
 ) -> list[_Candidate]:
     reliability, freshness = quality.get(evidence.doc_id, (0.5, 0.5))
     found = []
+    hidden = instruction_spans(evidence.text)
     for start, end in sentence_spans(evidence.text):
         sentence = evidence.text[start:end]
         if len(sentence) < MIN_SENTENCE_CHARS or _TABLE_RULE.match(sentence):
             continue
+        if overlaps(start, end, hidden):
+            continue  # instruction-like text is never quoted
         if sentence.startswith("|") and not any(ch.isdigit() for ch in sentence):
             continue  # a table header row states nothing
         if (evidence.doc_id, evidence.char_start + start) in skip:

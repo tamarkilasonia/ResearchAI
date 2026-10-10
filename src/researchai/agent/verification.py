@@ -215,6 +215,33 @@ def ensure_conflicts_reported(
     return report.model_copy(update={"sections": sections, "summary": summary}), added
 
 
+def restore_conflicts(
+    report: Report, findings: Findings, evidence: Sequence[Evidence]
+) -> tuple[Report, int]:
+    """Re-apply the both-sides guarantee after the citation verifier removed sentences.
+
+    A writer's own conflict sentence satisfies :func:`ensure_conflicts_reported`;
+    if the verifier later removes it, the templated sentence (verbatim quotes of
+    both claims) takes its place, and the section no longer says it has no evidence.
+    """
+    restored, added = ensure_conflicts_reported(report, findings, evidence)
+    if not added:
+        return report, 0
+    sections = []
+    insufficient = list(restored.insufficient)
+    for section in restored.sections:
+        if any(s.kind == "conflict" for s in section.sentences):
+            section = section.model_copy(
+                update={
+                    "sentences": [s for s in section.sentences if s.kind != "insufficient_evidence"]
+                }
+            )
+            if section.sub_question_id in insufficient:
+                insufficient.remove(section.sub_question_id)
+        sections.append(section)
+    return restored.model_copy(update={"sections": sections, "insufficient": insufficient}), added
+
+
 def _overlaps(citation: Citation, ranges: dict[str, list[tuple[int, int]]]) -> bool:
     if citation.char_start is None or citation.char_end is None:
         return False
