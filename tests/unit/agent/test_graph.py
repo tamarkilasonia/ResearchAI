@@ -417,3 +417,39 @@ async def test_unverifiable_citations_fail_the_run() -> None:
     assert result.status is RunStatus.FAILED
     assert result.report is None
     assert result.citation_report is None
+
+
+async def test_conflicts_removed_by_the_verifier_are_restored_from_the_template() -> None:
+    tools = FakeTools(corpus=[NEWER_REGISTRY, OLDER_REGISTRY])
+    report = {
+        "title": "Chargers",
+        "summary": [],
+        "sections": [
+            {"sub_question_id": "sq1", "heading": "Count", "sentences": [
+                # Cites both sides (so the template is not added) but states a number
+                # neither span contains: the verifier removes it.
+                {"text": "Sources disagree: 512 or 385, about 450 on average.", "kind": "conflict",
+                 "citations": [{"evidence_id": "E1", "quote": "512 public charging points"},
+                               {"evidence_id": "E2", "quote": "385 public charging points"}]}]}
+        ],
+    }  # fmt: skip
+    llm = ScriptedLLM(
+        {
+            "LLMPlan": [always({"sub_questions": [{"text": "How many public charging points?",
+                                                   "queries": ["public charging points"]}]})],
+            "Disagreements": [always({"disagreements": []})],
+            "ProposedCalculations": [always({"calculations": []})],
+            "LLMReport": [always(report)],
+        }
+    )  # fmt: skip
+    result = await agent(tools, llm).run(CHARGING_Q)
+    assert result.citation_report is not None
+    assert [s.status for s in result.citation_report.removed] == ["unsupported"]
+    verify = next(e for e in result.trace if e.node == "verify_citations")
+    assert verify.detail["conflicts_restored"] == 1
+    assert result.report is not None
+    [section] = result.report.sections
+    assert [s.kind for s in section.sentences] == ["conflict"]  # no "insufficient" left
+    assert "512 public charging points" in section.sentences[0].text
+    assert "385 public charging points" in section.sentences[0].text
+    assert result.report.insufficient == []
