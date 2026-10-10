@@ -9,6 +9,7 @@ from datetime import date
 from typing import Any
 
 from researchai.agent.llm import Completion, LLMError, LLMUsage
+from researchai.agent.models import Evidence
 from researchai.corpus.models import Language, SourceType, Topic
 from researchai.mcp_client.client import ToolCallError, ToolCallRecord
 from researchai.tools.calculator import evaluate
@@ -52,6 +53,26 @@ def hit(
         topic=topic,
         source_type=source_type,
         publisher="Publisher",
+    )
+
+
+def evidence_of(item: SearchHit, evidence_id: str = "E1", sub_question: str = "sq1") -> Evidence:
+    return Evidence(
+        id=evidence_id,
+        sub_question_id=sub_question,
+        query="query",
+        chunk_id=item.chunk_id,
+        doc_id=item.doc_id,
+        title=item.title,
+        section=item.section,
+        text=item.text,
+        char_start=item.char_start,
+        char_end=item.char_end,
+        published=item.published,
+        language=item.language,
+        source_type=item.source_type,
+        publisher=item.publisher,
+        score=item.score,
     )
 
 
@@ -187,6 +208,8 @@ class FakeTools:
         return CalculationResponse(expression=expression, result=evaluate(expression))
 
 
+ALLOW = {"decision": "allow", "category": "none", "reason": "research question"}
+
 Responder = Callable[[list[dict[str, str]]], str | dict[str, Any] | Exception]
 
 
@@ -200,6 +223,10 @@ class ScriptedLLM:
         default_factory=lambda: LLMUsage(prompt_tokens=500, completion_tokens=100)
     )
     requests: list[tuple[str, list[dict[str, str]]]] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        # The input guard screens every question in LLM mode; allow unless a test says otherwise.
+        self.script.setdefault("GuardDecision", [always(ALLOW)])
 
     @property
     def model(self) -> str:

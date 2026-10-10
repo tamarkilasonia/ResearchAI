@@ -3,9 +3,10 @@
 For every cited sentence of a report (claims, conflicts, recommendations):
 
 1. **Spans.** Each cited document is fetched once through MCP and every cited
-   span must equal its quote (whitespace and case normalised). Citations that
-   fail are removed from the sentence; a sentence left without a verified
-   citation is *unsupported*.
+   span must equal its quote (whitespace and case normalised) and must not
+   overlap instruction-like text (untrusted, see :mod:`researchai.safety`).
+   Citations that fail are removed from the sentence; a sentence left without a
+   verified citation is *unsupported*.
 2. **Numbers.** Every number in the sentence must appear in its cited spans, in
    a cited calculation result, or in the question itself. A number found only in
    some *other* passage makes the sentence *misattributed*; found nowhere, it is
@@ -51,6 +52,7 @@ from researchai.agent.models import (
 from researchai.agent.prompts import ENTAILMENT_SYSTEM, entailment_user
 from researchai.agent.verification import fill_empty_sections
 from researchai.mcp_client.client import ToolCallError
+from researchai.safety.documents import instruction_spans, overlaps
 from researchai.textutil import DOMAIN_COMMON, keyword_terms
 from researchai.tools.errors import ErrorCode
 from researchai.tools.schemas import DocumentResponse
@@ -88,7 +90,11 @@ def check_citation(citation: Citation, bodies: dict[str, str | None]) -> Citatio
     if citation.char_start is None or citation.char_end is None:
         return "unanchored"
     span = body[citation.char_start : citation.char_end]
-    return "verified" if normalized(span) == normalized(citation.quote) else "span_mismatch"
+    if normalized(span) != normalized(citation.quote):
+        return "span_mismatch"
+    if overlaps(citation.char_start, citation.char_end, instruction_spans(body)):
+        return "instruction_text"  # untrusted instructions never support a statement
+    return "verified"
 
 
 def sentence_numbers(text: str) -> list[float]:

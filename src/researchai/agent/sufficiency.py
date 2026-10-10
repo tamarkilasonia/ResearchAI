@@ -27,6 +27,7 @@ from researchai.agent.models import (
     SufficiencyVerdict,
 )
 from researchai.corpus.models import Language
+from researchai.safety.documents import neutralize
 from researchai.textutil import keyword_terms
 from researchai.tools.schemas import SearchMode, SearchResponse
 
@@ -56,7 +57,7 @@ class EntitySearch(Protocol):
 
 def relevant(item: Evidence, sub_question: SubQuestion) -> bool:
     terms = set(keyword_terms(" ".join([sub_question.text, *sub_question.queries])))
-    shared = len(terms & set(keyword_terms(item.text)))
+    shared = len(terms & set(keyword_terms(neutralize(item.text))))
     return shared >= min(MIN_SHARED_TERMS, len(terms))
 
 

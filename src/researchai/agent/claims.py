@@ -27,6 +27,7 @@ from datetime import date
 
 from researchai.agent.models import Claim, Evidence, NumericFact
 from researchai.corpus.models import SourceType
+from researchai.safety.documents import instruction_spans, overlaps
 from researchai.textutil import keyword_terms, sentence_spans
 
 UNIT_GAP = 3  # whitespace allowed between a number and its unit
@@ -342,8 +343,11 @@ def extract_claims(evidence: Iterable[Evidence], reliability: dict[str, float]) 
         header: str | None = None
         owner = item.publisher if item.source_type in SELF_DESCRIBING else ""
         context = f"{owner} {item.section}"
+        hidden = instruction_spans(item.text)
         for start, end in sentence_spans(item.text):
             sentence = item.text[start:end]
+            if overlaps(start, end, hidden):
+                continue  # instruction-like text is untrusted data, never a claim
             if not sentence.startswith("|"):
                 header = None
                 facts = facts_in(sentence, item.char_start + start, item.published, context=context)
