@@ -93,6 +93,10 @@ class Settings(BaseSettings):
     embedding_dim: int = Field(default=1024, ge=8, le=4096)
     embedding_batch_size: int = Field(default=32, ge=1, le=256)
 
+    # --- API ---
+    api_max_concurrent_runs: int = Field(default=2, ge=1, le=32)
+    api_wait_seconds: float = Field(default=600.0, gt=0, le=3600)
+
     # --- corpus ---
     corpus_dir: Path = Path("corpus")
 
