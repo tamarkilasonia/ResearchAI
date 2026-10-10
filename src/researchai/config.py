@@ -100,6 +100,11 @@ class Settings(BaseSettings):
     # --- corpus ---
     corpus_dir: Path = Path("corpus")
 
+    # --- evaluation ---
+    eval_dir: Path = Path("eval")
+    eval_output_dir: Path = Path("eval/runs")
+    eval_cost_per_1k_tokens: float = Field(default=0.0, ge=0)
+
     # --- MCP tool server ---
     mcp_server_url: str = "http://localhost:8765/mcp"
     mcp_host: str = "127.0.0.1"
