@@ -15,6 +15,7 @@ from researchai.agent.models import ResearchResult, RunStatus, ToolCall, Usage
 from researchai.config import Settings
 from researchai.log import bind_run_id
 from researchai.mcp_client.client import ToolCallRecord
+from researchai.safety.models import SafetyReport
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,11 @@ class ResearchAgent:
             report=state.get("report") if status is None else None,
             citation_report=state.get("citation_report") if status is None else None,
             reason=reason or state.get("reason"),
+            safety=SafetyReport(
+                input=state.get("guard"),
+                injections=state.get("injections", []),
+                output_issues=state.get("output_issues", []),
+            ),
             trace=state.get("trace", []),
             tool_calls=[
                 ToolCall(

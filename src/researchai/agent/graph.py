@@ -4,13 +4,22 @@
       -> search_worker x N (parallel)  <------------------------------+
       -> collect -> assess_sources -> extract_claims -> check_sufficiency
            (insufficient sub-questions, budget left: follow-up round) -+
-      -> detect_conflicts -> analyze -> synthesize -> verify_citations -> finalize
+      -> detect_conflicts -> analyze -> synthesize -> verify_citations
+      -> output_guard -> finalize
+
+    (invalid input or a refused request: straight to finalize, no tool call)
 
 Rules first, LLM where rules are unsure: source assessment, claim extraction
 and sufficiency are rules; conflict detection is rules plus an optional LLM
 pass for disagreements without numbers. ``verify_citations`` re-checks every
 cited span through MCP, the numbers in each sentence, and (for paraphrases)
 entailment, removing unsupported and misattributed sentences.
+
+Safety (:mod:`researchai.safety`): ``input_guard`` refuses prompt-injection
+attempts and harmful requests; ``collect`` records instruction-like text in
+retrieved passages, which is hidden from every LLM prompt and can never become
+a claim or a verified citation; ``output_guard`` removes sentences that leak a
+system prompt, repeat injected text or carry links no source contains.
 
 Nodes reach data only through the MCP client in the runtime context.
 Infrastructure failures (index not ready, backend down) end the run as
@@ -56,7 +65,7 @@ from researchai.agent.models import (
     TraceEvent,
 )
 from researchai.agent.planner import make_plan
-from researchai.agent.profile import profile_question
+from researchai.agent.profile import detect_language, profile_question
 from researchai.agent.sufficiency import key_entities, missing_entities, verdicts
 from researchai.agent.synthesis import (
     abstention_report,
@@ -64,9 +73,13 @@ from researchai.agent.synthesis import (
     fit_evidence,
     llm_report,
 )
-from researchai.agent.verification import Findings
+from researchai.agent.verification import Findings, restore_conflicts
 from researchai.corpus.models import Topic
 from researchai.mcp_client.client import ToolCallError
+from researchai.safety.documents import instruction_spans
+from researchai.safety.input_guard import check_question, refusal_report
+from researchai.safety.models import GuardVerdict, InjectionFinding, OutputIssue
+from researchai.safety.output_guard import OutputGuard
 from researchai.textutil import keyword_terms
 from researchai.tools.errors import ErrorCode
 from researchai.tools.schemas import (
@@ -135,6 +148,9 @@ class ResearchState(TypedDict, total=False):
     calculations: list[Calculation]
     report: Report
     citation_report: CitationReport
+    guard: GuardVerdict
+    injections: list[InjectionFinding]
+    output_issues: list[OutputIssue]
     trace: Annotated[list[TraceEvent], operator.add]
 
 
@@ -179,8 +195,17 @@ async def validate_input(state: ResearchState, *, runtime: Runtime[AgentContext]
 
 
 async def input_guard(state: ResearchState, *, runtime: Runtime[AgentContext]) -> dict[str, Any]:
-    # Placeholder until phase 8 (prompt injection, harmful requests). Allows everything.
-    return {"_detail": {"verdict": "allow", "implemented": False}}
+    ctx = runtime.context
+    question = state["question"]
+    verdict = await check_question(question, llm=ctx.llm, budget=ctx.budget)
+    update: dict[str, Any] = {"guard": verdict, "_detail": verdict.model_dump(mode="json")}
+    if verdict.action == "refuse":
+        update |= {
+            "status": RunStatus.REFUSED,
+            "reason": f"refused by the input guard: {verdict.category}",
+            "report": refusal_report(verdict.category, detect_language(question)),
+        }
+    return update
 
 
 async def profile(state: ResearchState, *, runtime: Runtime[AgentContext]) -> dict[str, Any]:
@@ -310,11 +335,33 @@ def _evidence_from_hits(plan: ResearchPlan, hits: list[dict[str, Any]]) -> list[
     return evidence
 
 
+def find_injections(evidence: list[Evidence]) -> list[InjectionFinding]:
+    """Instruction-like text in retrieved passages (absolute document offsets)."""
+    return [
+        InjectionFinding(
+            evidence_id=item.id,
+            doc_id=item.doc_id,
+            char_start=item.char_start + start,
+            char_end=item.char_start + end,
+            text=item.text[start:end],
+            rule=rule,
+        )
+        for item in evidence
+        for start, end, rule in instruction_spans(item.text)
+    ]
+
+
 async def collect(state: ResearchState, *, runtime: Runtime[AgentContext]) -> dict[str, Any]:
     evidence = _evidence_from_hits(state["plan"], state.get("hits", []))
+    injections = find_injections(evidence)
     return {
         "evidence": evidence,
-        "_detail": {"evidence": len(evidence), "documents": len({e.doc_id for e in evidence})},
+        "injections": injections,
+        "_detail": {
+            "evidence": len(evidence),
+            "documents": len({e.doc_id for e in evidence}),
+            "instruction_like": [f"{i.evidence_id}:{i.rule}" for i in injections],
+        },
     }
 
 
@@ -550,10 +597,12 @@ async def verify_citations(
     except ToolCallError as exc:
         # Unverifiable citations must not reach the user: no report instead.
         raise _fatal(exc) from exc
+    cleaned, restored = restore_conflicts(cleaned, findings_of(state), state.get("evidence", []))
     return {
         "report": cleaned,
         "citation_report": summary,
         "_detail": {
+            "conflicts_restored": restored,
             "precision": summary.precision,
             "citations": summary.citations_total,
             "verified_spans": summary.citations_verified,
@@ -564,9 +613,19 @@ async def verify_citations(
     }
 
 
+async def output_guard(state: ResearchState, *, runtime: Runtime[AgentContext]) -> dict[str, Any]:
+    guard = OutputGuard(state.get("evidence", []), state.get("injections", []))
+    cleaned, issues = guard.apply(state["report"])  # synthesize always writes one
+    return {
+        "report": cleaned,
+        "output_issues": issues,
+        "_detail": {"removed": [issue.reason for issue in issues]},
+    }
+
+
 async def finalize(state: ResearchState, *, runtime: Runtime[AgentContext]) -> dict[str, Any]:
-    if state.get("status") is RunStatus.REJECTED:
-        return {"_detail": {"status": "rejected"}}
+    if (status := state.get("status")) in (RunStatus.REJECTED, RunStatus.REFUSED):
+        return {"_detail": {"status": status.value}}
     report = state.get("report")
     answered = report is not None and any(s.kind == "claim" for s in report.sentences())
     status = RunStatus.ANSWERED if answered else RunStatus.ABSTAINED
@@ -575,6 +634,10 @@ async def finalize(state: ResearchState, *, runtime: Runtime[AgentContext]) -> d
 
 def _route_after_validation(state: ResearchState) -> str:
     return "finalize" if state.get("status") is RunStatus.REJECTED else "input_guard"
+
+
+def _route_after_guard(state: ResearchState) -> str:
+    return "finalize" if state.get("status") is RunStatus.REFUSED else "profile"
 
 
 def build_graph() -> CompiledStateGraph[ResearchState, AgentContext, ResearchState, ResearchState]:
@@ -592,13 +655,14 @@ def build_graph() -> CompiledStateGraph[ResearchState, AgentContext, ResearchSta
     graph.add_node("analyze", traced("analyze", analyze))
     graph.add_node("synthesize", traced("synthesize", synthesize))
     graph.add_node("verify_citations", traced("verify_citations", verify_citations))
+    graph.add_node("output_guard", traced("output_guard", output_guard))
     graph.add_node("finalize", traced("finalize", finalize))
 
     graph.add_edge(START, "validate_input")
     graph.add_conditional_edges(
         "validate_input", _route_after_validation, ["input_guard", "finalize"]
     )
-    graph.add_edge("input_guard", "profile")
+    graph.add_conditional_edges("input_guard", _route_after_guard, ["profile", "finalize"])
     graph.add_edge("profile", "planner")
     graph.add_conditional_edges("planner", dispatch_searches, ["search_worker", "collect"])
     graph.add_edge("search_worker", "collect")
@@ -611,6 +675,7 @@ def build_graph() -> CompiledStateGraph[ResearchState, AgentContext, ResearchSta
     graph.add_edge("detect_conflicts", "analyze")
     graph.add_edge("analyze", "synthesize")
     graph.add_edge("synthesize", "verify_citations")
-    graph.add_edge("verify_citations", "finalize")
+    graph.add_edge("verify_citations", "output_guard")
+    graph.add_edge("output_guard", "finalize")
     graph.add_edge("finalize", END)
     return graph.compile()

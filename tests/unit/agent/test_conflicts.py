@@ -9,6 +9,7 @@ from researchai.agent.budget import Limits, RunBudget
 from researchai.agent.claims import extract_claims
 from researchai.agent.conflicts import (
     Disagreements,
+    can_supersede,
     comparable,
     consistent,
     llm_conflicts,
@@ -288,3 +289,75 @@ async def test_llm_pass_failure_is_a_note() -> None:
 
 def test_disagreements_schema() -> None:
     assert Disagreements.model_validate({"disagreements": []}).disagreements == []
+
+
+OFFICIAL_2025 = Doc(
+    "ev-en-0013#c0",
+    "Public charging points registry: 512 public charging points.",
+    date(2025, 7, 15),
+    "Registry",
+)
+FORUM_2026 = Doc(
+    "ev-en-0090#c0",
+    "Public charging points registry: 7777 public charging points.",
+    date(2026, 8, 1),
+    "Thread",
+    SourceType.FORUM,
+    "EV owners forum",
+)
+OFFICIAL_2026 = Doc(
+    "ev-en-0091#c0",
+    "Public charging points registry: 7777 public charging points.",
+    date(2026, 6, 1),
+    "Registry",
+)
+
+
+def _with_reliability(items: list[Evidence]) -> list[Claim]:
+    reliability = {"ev-en-0013": 0.9, "ev-en-0090": 0.25, "ev-en-0091": 0.9}
+    return extract_claims(items, reliability)
+
+
+def test_a_newer_low_reliability_source_never_supersedes_an_official_value() -> None:
+    claims = _with_reliability(evidence(OFFICIAL_2025, FORUM_2026))
+    (conflict,) = rule_conflicts(claims)
+    assert conflict.kind == "contradiction"  # both sides shown, the official value kept
+    by_id = {c.id: c for c in claims}
+    assert [by_id[i].doc_id for i in conflict.current] == ["ev-en-0090"]
+    assert [by_id[i].doc_id for i in conflict.others] == ["ev-en-0013"]
+
+
+def test_a_reliable_source_agreeing_with_the_newest_value_supersedes_and_is_quoted() -> None:
+    claims = _with_reliability(evidence(OFFICIAL_2025, FORUM_2026, OFFICIAL_2026))
+    (conflict,) = rule_conflicts(claims)
+    assert conflict.kind == "outdated"
+    by_id = {c.id: c for c in claims}
+    assert [by_id[i].doc_id for i in conflict.current] == ["ev-en-0091"]  # the forum adds nothing
+    assert [by_id[i].doc_id for i in conflict.others] == ["ev-en-0013"]
+
+
+def test_can_supersede() -> None:
+    assert can_supersede(0.9, 0.9)
+    assert can_supersede(0.6, 0.9)  # reliable enough: news may update an official figure
+    assert can_supersede(0.25, 0.25)
+    assert not can_supersede(0.25, 0.9)
+    assert not can_supersede(0.45, 0.6)
+
+
+async def test_llm_pass_applies_the_same_reliability_rule() -> None:
+    items = evidence(VAT_2022, VAT_2023)
+    ids = {e.doc_id: e.id for e in items}
+    reply = {
+        "disagreements": [
+            {"evidence_a": ids["ev-en-0003"], "quote_a": "VAT at 18% is charged",
+             "evidence_b": ids["ev-en-0002"], "quote_b": "will be exempt from VAT",
+             "explanation": "VAT applies vs exempt"},
+        ]
+    }  # fmt: skip
+    llm = ScriptedLLM({"Disagreements": [always(reply)]})
+    # The newer notice comes from a forum this time.
+    _, conflicts, _ = await llm_conflicts(
+        "q", items, [], [], {"ev-en-0002": 0.25, "ev-en-0003": 0.6},
+        llm=llm, budget=_budget(), max_output_tokens=500,
+    )  # fmt: skip
+    assert [c.kind for c in conflicts] == ["contradiction"]

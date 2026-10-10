@@ -15,6 +15,7 @@ from typing import Any, Literal, Self
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from researchai.corpus.models import Language, SourceType, Topic
+from researchai.safety.models import SafetyReport
 
 
 class _Model(BaseModel):
@@ -31,7 +32,8 @@ class QuestionKind(StrEnum):
 class RunStatus(StrEnum):
     ANSWERED = "answered"
     ABSTAINED = "abstained"  # no usable evidence at all
-    REJECTED = "rejected"  # input failed validation or the input guard
+    REJECTED = "rejected"  # input failed validation (empty, too long)
+    REFUSED = "refused"  # the input guard refused it (prompt injection, harmful request)
     FAILED = "failed"  # infrastructure error; never a fabricated answer
 
 
@@ -222,7 +224,9 @@ class Report(_Model):
         return [c for sentence in self.sentences() for c in sentence.citations]
 
 
-CitationStatus = Literal["verified", "unanchored", "span_mismatch", "missing_document"]
+CitationStatus = Literal[
+    "verified", "unanchored", "span_mismatch", "missing_document", "instruction_text"
+]
 SentenceStatus = Literal["verbatim", "supported", "partial", "unsupported", "misattributed"]
 
 
@@ -306,7 +310,10 @@ class ResearchResult(_Model):
     calculations: list[Calculation] = Field(default_factory=list)
     report: Report | None = None
     citation_report: CitationReport | None = None
-    reason: str | None = Field(default=None, description="Why a run was rejected or failed")
+    reason: str | None = Field(
+        default=None, description="Why a run was rejected, refused or failed"
+    )
+    safety: SafetyReport = Field(default_factory=SafetyReport)
     trace: list[TraceEvent] = Field(default_factory=list)
     tool_calls: list[ToolCall] = Field(default_factory=list)
     usage: Usage = Field(default_factory=Usage)

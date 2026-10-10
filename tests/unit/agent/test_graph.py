@@ -37,7 +37,7 @@ async def test_offline_run_answers_with_cited_claims() -> None:
     assert tools.topics[0] is Topic.EV  # round 0 uses the detected topic as a filter
     nodes = [event.node for event in result.trace]
     assert nodes[:4] == ["validate_input", "input_guard", "profile", "planner"]
-    assert nodes[-4:] == ["analyze", "synthesize", "verify_citations", "finalize"]
+    assert nodes[-4:] == ["synthesize", "verify_citations", "output_guard", "finalize"]
     assert result.citation_report is not None
     assert result.citation_report.precision == 1.0
     assert result.usage.searches == sum(c.tool == "search_corpus" for c in result.tool_calls) > 0
@@ -236,8 +236,8 @@ async def test_llm_run_plans_computes_and_writes() -> None:
     assert result.report is not None
     assert result.report.generated_by == "llm"
     assert all(c.anchored for c in result.report.citations())
-    assert result.usage.llm_calls == 3
-    assert result.usage.total_tokens == 3 * 600
+    assert result.usage.llm_calls == 4  # input guard, planner, analyst, writer
+    assert result.usage.total_tokens == 4 * 600
     assert [c.tool for c in result.tool_calls].count("calculate") == 1
     synth = next(e for e in result.trace if e.node == "synthesize")
     assert synth.detail["anchored"] == 4
@@ -260,7 +260,7 @@ async def test_token_budget_forces_rule_fallbacks_but_still_answers() -> None:
     assert result.plan.planned_by == "rules"
     assert result.report is not None
     assert result.report.generated_by == "rules"
-    assert result.usage.llm_calls == 0
+    assert result.usage.llm_calls == 1  # only the input guard fit the budget
 
 
 async def test_follow_up_round_with_fewer_searches_than_empty_sub_questions() -> None:
@@ -417,3 +417,39 @@ async def test_unverifiable_citations_fail_the_run() -> None:
     assert result.status is RunStatus.FAILED
     assert result.report is None
     assert result.citation_report is None
+
+
+async def test_conflicts_removed_by_the_verifier_are_restored_from_the_template() -> None:
+    tools = FakeTools(corpus=[NEWER_REGISTRY, OLDER_REGISTRY])
+    report = {
+        "title": "Chargers",
+        "summary": [],
+        "sections": [
+            {"sub_question_id": "sq1", "heading": "Count", "sentences": [
+                # Cites both sides (so the template is not added) but states a number
+                # neither span contains: the verifier removes it.
+                {"text": "Sources disagree: 512 or 385, about 450 on average.", "kind": "conflict",
+                 "citations": [{"evidence_id": "E1", "quote": "512 public charging points"},
+                               {"evidence_id": "E2", "quote": "385 public charging points"}]}]}
+        ],
+    }  # fmt: skip
+    llm = ScriptedLLM(
+        {
+            "LLMPlan": [always({"sub_questions": [{"text": "How many public charging points?",
+                                                   "queries": ["public charging points"]}]})],
+            "Disagreements": [always({"disagreements": []})],
+            "ProposedCalculations": [always({"calculations": []})],
+            "LLMReport": [always(report)],
+        }
+    )  # fmt: skip
+    result = await agent(tools, llm).run(CHARGING_Q)
+    assert result.citation_report is not None
+    assert [s.status for s in result.citation_report.removed] == ["unsupported"]
+    verify = next(e for e in result.trace if e.node == "verify_citations")
+    assert verify.detail["conflicts_restored"] == 1
+    assert result.report is not None
+    [section] = result.report.sections
+    assert [s.kind for s in section.sentences] == ["conflict"]  # no "insufficient" left
+    assert "512 public charging points" in section.sentences[0].text
+    assert "385 public charging points" in section.sentences[0].text
+    assert result.report.insufficient == []
