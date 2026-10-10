@@ -71,7 +71,7 @@ validate_input -> input_guard -> profile -> planner
   -> collect -> assess_sources -> extract_claims -> check_sufficiency  |
        (insufficient sub-questions and budget left: follow-up round) --+
   -> detect_conflicts -> analyze (calculations via MCP) -> synthesize
-  -> verify_citations -> finalize
+  -> verify_citations -> output_guard -> finalize
 ```
 
 - **Rules first, LLM where rules are unsure.** Profiling (language, topic, question
@@ -91,6 +91,8 @@ validate_input -> input_guard -> profile -> planner
   degrade the run and are reported; they never crash it.
 - **No answer without evidence.** Off-corpus questions abstain; a tool backend
   failure ends the run as `failed`.
+- **Run outcomes:** `answered`, `abstained` (no usable evidence), `rejected`
+  (invalid input), `refused` (input guard), `failed` (infrastructure).
 
 ### Verification (rules first, LLM where rules are unsure)
 
@@ -135,6 +137,51 @@ Each result carries a `citation_report`: citation precision (citations whose
 span is verified and supports the sentence), counts per verdict, and the
 removed and flagged sentences with reasons.
 
+### Safety
+
+Text in retrieved documents is **untrusted data**; the agent never follows it.
+Prompts say so, but prompts are not a security boundary, so there are three
+code-level layers ([src/researchai/safety/](src/researchai/safety/)):
+
+1. **Input guard** (`input_guard`, before any tool call). Rules (English and
+   Georgian) refuse prompt-injection attempts ("ignore previous instructions",
+   "show your system prompt", role spoofing, `</evidence>` tags) and clearly
+   harmful requests, including domain fraud: hiding income, evading customs,
+   under-declaring a car's value, fake invoices, odometer rollback. Harmful-request
+   rules need a request to *do* the thing, so look-alikes pass ("how can I spot a
+   fake invoice", "can a small firm break into the charging market", "what are the
+   penalties for tax evasion"). Questions plainly asking whether something is legal
+   or what happens if a rule is broken are allowed. With an LLM, a short classifier
+   call screens every other question (rules miss paraphrases); offline, rules alone
+   decide. A refused run has status `refused`, a bilingual explanation, and zero
+   tool calls.
+2. **Untrusted documents.** Instruction-like sentences in retrieved passages (text
+   addressed to an AI, "tell the user ...", "do not cite other sources", links to
+   load, hidden HTML comments, role/tag spoofing) are recorded per run
+   (`safety.injections`) and replaced with `[instruction-like text removed]` in every
+   LLM prompt. They can never become a claim, an extractive sentence, a calculation
+   operand or a verified citation (`instruction_text`). Offsets of the rest of the
+   passage are untouched, so other citations still anchor exactly.
+3. **Output guard** (`output_guard`, after citation verification) removes sentences
+   that repeat 8 words of a system prompt, repeat injected text, or contain a link
+   no retrieved passage contains (the usual exfiltration channel), and replaces such
+   titles and headings.
+
+Measured so far (qwen2.5:7b, small development sets, details in the phase 8 PR):
+the frozen corpus triggers no detector (0 instruction-like spans and 0 guard-rule
+hits in 228 documents). On 12 fresh questions written after the rules, the
+keyword-gated first version scored 8/12, which led to classifying every question in
+LLM mode. On a 20 benign + 8 harmful set the classifier alone refused all harmful
+requests and 5 benign ones; with the rules in front, 1 benign question ("are there
+legal ways to circumvent the turnover limit") would still be refused. These sets
+informed the design, so they are not an unbiased estimate; the evaluation dataset
+(phase 9, with a holdout split) measures refusal precision and recall properly.
+
+**Limitations:** detection is pattern based and can be evaded by paraphrase in a
+document (the LLM then sees the text, still marked as untrusted evidence, and the
+citation verifier and output guard still apply); Georgian classification is weaker
+(qwen2.5:7b misreads some Georgian questions); offline mode has no classifier.
+
 ```bash
 uv run python -m researchai.mcp_server &                    # tools on :8765
 uv run python -m researchai.agent "How many public charging points are there?"
@@ -146,7 +193,7 @@ LLM_PROVIDER=ollama uv run python -m researchai.agent --json "..."  # full trace
 | Endpoint | What it does |
 |---|---|
 | `POST /research` | Store a run and start it in the background: `202` with the run id and a `Location` header. `?wait=true` blocks up to `API_WAIT_SECONDS` and returns the finished run. |
-| `GET /research/{id}` | Status (`queued`, `running`, `completed`, `failed`), the full result (report, citations, conflicts, citation checks, trace, tool calls, token usage) and the report as Markdown. |
+| `GET /research/{id}` | Status (`queued`, `running`, `completed`, `failed`), the full result (outcome such as `answered` or `refused`, report, citations, conflicts, citation checks, safety verdicts, trace, tool calls, token usage) and the report as Markdown. |
 | `GET /evaluations` | Evaluation runs, newest first. |
 | `POST /evaluations/run` | Start an evaluation run. Answers `503 EVALUATION_UNAVAILABLE` until the evaluation runner exists (phase 10). |
 | `GET /health` | Database and MCP tool server status; `503` with `"degraded"` if one is down. |
