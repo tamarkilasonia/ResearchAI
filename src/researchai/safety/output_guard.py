@@ -21,6 +21,7 @@ from researchai.agent.models import Evidence, Report, ReportSentence
 from researchai.agent.prompts import SYSTEM_PROMPTS
 from researchai.agent.verification import fill_empty_sections
 from researchai.corpus.models import Language
+from researchai.safety.documents import neutralize
 from researchai.safety.models import InjectionFinding, OutputIssue
 
 PROMPT_NGRAM = 8  # words; long enough that ordinary report sentences never share one
@@ -53,7 +54,8 @@ class OutputGuard:
     def __init__(
         self, evidence: Sequence[Evidence], injections: Sequence[InjectionFinding]
     ) -> None:
-        self._known_links = {link for e in evidence for link in links(e.text)}
+        # Links inside instruction-like text are not "known": they are the payload.
+        self._known_links = {link for e in evidence for link in links(neutralize(e.text))}
         self._injected = _union((i.text for i in injections), INJECTION_NGRAM)
 
     def issue(self, text: str) -> OutputIssue | None:
