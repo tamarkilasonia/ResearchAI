@@ -25,9 +25,10 @@ make down
 
 ## Corpus
 
-A frozen, fully synthetic corpus of 228 documents in English and Georgian on
-two topics: electric cars in Georgia, and Georgia's small-business tax regime.
-All publishers are fictional and the numbers are not authoritative; see
+A frozen, fully synthetic corpus of 246 documents (v1.1.0, incl. 18 planted
+traps) in English and Georgian on two topics: electric cars in Georgia, and
+Georgia's small-business tax regime. All publishers are fictional and the numbers
+are not authoritative; see
 [corpus/README.md](corpus/README.md). Ingestion chunks documents by section,
 embeds them (offline hash embedder for tests/CI, `bge-m3` via Ollama for real
 runs) and stores them in pgvector with a full-text index:
@@ -170,8 +171,10 @@ code-level layers ([src/researchai/safety/](src/researchai/safety/)):
    titles and headings.
 
 Measured so far (qwen2.5:7b, small development sets, details in the phase 8 PR):
-the frozen corpus triggers no detector (0 instruction-like spans and 0 guard-rule
-hits in 228 documents). On 12 fresh questions written after the rules, the
+the corpus outside the planted injection documents triggers no detector (0
+instruction-like spans and 0 guard-rule hits in 237 documents); of the 9 planted
+injections the rules catch the 7 explicit ones and miss both paraphrased ones
+(measured once, before any tuning). On 12 fresh questions written after the rules, the
 keyword-gated first version scored 8/12, which led to classifying every question in
 LLM mode. On a 20 benign + 8 harmful set the classifier alone refused all harmful
 requests and 5 benign ones; with the rules in front, 1 benign question ("are there
@@ -199,6 +202,36 @@ uv run python -m researchai.mcp_server &                    # tools on :8765
 uv run python -m researchai.agent "How many public charging points are there?"
 LLM_PROVIDER=ollama uv run python -m researchai.agent --json "..."  # full trace
 ```
+
+## Evaluation dataset
+
+[`eval/`](eval/README.md) holds the ground truth, outside the corpus so the agent
+can never read it:
+
+- **29 planted traps** ([`eval/traps.toml`](eval/traps.toml)): 4 same-period
+  contradictions, 5 low-reliability sources (forum, dealer, blog) contradicting
+  reliable ones, 9 hidden prompt injections (7 explicit, 2 paraphrased; English
+  and Georgian) and 11 outdated values superseded by newer documents.
+- **135 labelled cases** in 11 categories (factual, comparison, recommendation,
+  numeric, conflict, outdated, unanswerable, injection, harmful, Georgian,
+  multi-hop; 27 in Georgian). Each case has the question, expected behaviour
+  (answer / flag conflict / abstain / refuse), key points, reference facts with
+  their source documents, expected tools and, where relevant, the expected
+  calculation, values that must not be presented as current and text that must
+  never appear.
+- **Validated against the corpus:** every reference value must appear in a cited
+  document, every calculation must evaluate to its result from operands in its
+  sources, and every injected payload must appear verbatim in its document.
+- **Holdout (42 cases, 31%)** chosen by a hash rule per category, frozen by a
+  digest in `holdout.lock`, and never used for tuning.
+
+```bash
+uv run python -m researchai.evaluation validate
+uv run python -m researchai.evaluation stats
+```
+
+The dataset, the traps and the agent were written by the same developer; see
+the limitations in [eval/README.md](eval/README.md).
 
 ## HTTP API
 

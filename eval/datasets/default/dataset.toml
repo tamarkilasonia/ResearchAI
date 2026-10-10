@@ -1,0 +1,7 @@
+name = "default"
+version = "1.0.0"
+corpus_version = "1.1.0"
+description = "Labelled research questions over the frozen corpus: 11 categories, English and Georgian, with reference facts grounded in cited documents."
+# Holdout: per category, about 30% of the cases, chosen by hash (never by hand).
+holdout_share = 0.3
+salt = "researchai-holdout-v1"

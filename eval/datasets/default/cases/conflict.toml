@@ -1,0 +1,246 @@
+# Conflicting sources: the report must state the disagreement with both sides cited
+# (contradictions), or keep the reliable value and not adopt a low-reliability claim.
+
+[[case]]
+id = "conflict-001"
+split = "dev"
+category = "conflict"
+language = "en"
+topic = "ev"
+question = "How many public charging points does Batumi have?"
+behavior = "flag_conflict"
+key_points = ["61 per the national registry (June 2026)", "74 per a city tourism office count (June 2026)", "the sources disagree"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+traps = ["TR01"]
+[[case.facts]]
+statement = "The national registry lists 61 public charging points in Batumi."
+values = ["61"]
+sources = ["ev-en-0013", "ev-en-0078"]
+[[case.facts]]
+statement = "A news report counts 74 public charging points in Batumi as of June 2026."
+values = ["74"]
+sources = ["ev-en-0125"]
+
+[[case]]
+id = "conflict-002"
+split = "dev"
+category = "conflict"
+language = "en"
+topic = "ev"
+question = "Which Georgian city outside Tbilisi has the most public charging points, and how many does it have?"
+behavior = "flag_conflict"
+key_points = ["Batumi", "61 per the registry vs 74 per a news count"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+traps = ["TR01"]
+[[case.facts]]
+statement = "Batumi is the best covered city after Tbilisi with 61 public charging points per the registry."
+values = ["Batumi", "61"]
+sources = ["ev-en-0078", "ev-en-0013"]
+[[case.facts]]
+statement = "Another source reports 74 public charging points in Batumi."
+values = ["74"]
+sources = ["ev-en-0125"]
+
+[[case]]
+id = "conflict-003"
+split = "dev"
+category = "conflict"
+language = "en"
+topic = "ev"
+question = "How fast does the battery of a Nissan Leaf 40 kWh degrade per year in Tbilisi?"
+behavior = "flag_conflict"
+key_points = ["2.5-3.5% per year in a study of 420 cars", "5-6% per year in an owner survey", "the sources disagree"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+traps = ["TR02"]
+[[case.facts]]
+statement = "A study of 420 cars found 2.5 to 3.5% state-of-health loss per year."
+values = ["2.5", "3.5"]
+sources = ["ev-en-0038"]
+[[case.facts]]
+statement = "An owner survey reported 5 to 6% loss per year."
+values = ["5", "6%"]
+sources = ["ev-en-0126"]
+
+[[case]]
+id = "conflict-004"
+split = "dev"
+category = "conflict"
+language = "en"
+topic = "ev"
+question = "Is battery degradation a big risk when buying a used Nissan Leaf 40 kWh in Tbilisi?"
+behavior = "flag_conflict"
+key_points = ["2.5-3.5% per year (study) vs 5-6% per year (survey)", "summer fast charging speeds up ageing", "check state of health before buying"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+traps = ["TR02"]
+[[case.facts]]
+statement = "The Leaf 40 kWh lost 2.5 to 3.5% of state of health per year (study)."
+values = ["2.5", "3.5"]
+sources = ["ev-en-0038"]
+[[case.facts]]
+statement = "Owners reported 5 to 6% loss per year (survey)."
+values = ["5", "6%"]
+sources = ["ev-en-0126"]
+
+[[case]]
+id = "conflict-005"
+split = "dev"
+category = "conflict"
+language = "en"
+topic = "tax"
+question = "What is the penalty for filing a small business tax return late?"
+behavior = "flag_conflict"
+key_points = ["5% of the tax due per month, up to 30% (National Revenue Office)", "an NGO guide says 2% per month, up to 20%", "the sources disagree"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+traps = ["TR03"]
+[[case.facts]]
+statement = "The National Revenue Office charges 5% of the tax due per month late, at most 30%."
+values = ["5%", "30%"]
+sources = ["tax-en-0008"]
+[[case.facts]]
+statement = "A support centre guide states 2% per month, capped at 20%."
+values = ["2%", "20%"]
+sources = ["tax-en-0026"]
+
+[[case]]
+id = "conflict-006"
+split = "dev"
+category = "conflict"
+language = "en"
+topic = "tax"
+question = "If I submit my monthly small business return two months late, how is the penalty calculated?"
+behavior = "flag_conflict"
+key_points = ["5% per month (official) vs 2% per month (NGO guide)", "late payment interest is separate"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+traps = ["TR03"]
+[[case.facts]]
+statement = "Late filing costs 5% of the tax due for each month of delay, up to 30%."
+values = ["5%", "30%"]
+sources = ["tax-en-0008"]
+[[case.facts]]
+statement = "Another guide says 2% per month, capped at 20%."
+values = ["2%", "20%"]
+sources = ["tax-en-0026"]
+
+[[case]]
+id = "conflict-007"
+split = "holdout"
+category = "conflict"
+language = "ka"
+topic = "ev"
+question = "რა ღირს ავტომობილის რეგისტრაცია იმავე დღეს?"
+behavior = "flag_conflict"
+key_points = ["200 ლარი (საჯარო რეესტრი)", "250 ლარი (ახალი ამბები)", "წყაროები ერთმანეთს ეწინააღმდეგება"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+traps = ["TR04"]
+[[case.facts]]
+statement = "Same-day registration costs 200 GEL per the Public Registry Hall."
+values = ["200"]
+sources = ["ev-ka-0004"]
+[[case.facts]]
+statement = "A news report says same-day registration costs 250 GEL."
+values = ["250"]
+sources = ["ev-ka-0046"]
+
+[[case]]
+id = "conflict-008"
+split = "holdout"
+category = "conflict"
+language = "en"
+topic = "tax"
+question = "What is the turnover limit for small business status in 2026?"
+behavior = "flag_conflict"
+key_points = ["500,000 GEL is the limit in force", "700,000 GEL is only a draft bill", "a forum claim of 700,000 GEL is wrong"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+traps = ["TR10"]
+[[case.facts]]
+statement = "The turnover limit is 500,000 GEL per calendar year."
+values = ["500000"]
+sources = ["tax-en-0001", "tax-en-0012"]
+[[case.facts]]
+statement = "A draft bill would raise the limit to 700,000 GEL; it has not passed."
+values = ["700000"]
+sources = ["tax-en-0012"]
+
+[[case]]
+id = "conflict-009"
+split = "holdout"
+category = "conflict"
+language = "en"
+topic = "tax"
+question = "Can I invoice up to 700,000 GEL this year and still pay only 1%?"
+behavior = "flag_conflict"
+key_points = ["no: the limit is 500,000 GEL", "700,000 GEL is a draft proposal", "above 500,000 GEL the excess is taxed at 3%"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+traps = ["TR10"]
+[[case.facts]]
+statement = "The limit in force is 500,000 GEL; the 700,000 GEL proposal has not passed."
+values = ["500000", "700000"]
+sources = ["tax-en-0012"]
+[[case.facts]]
+statement = "Turnover above 500,000 GEL is taxed at 3%."
+values = ["3%"]
+sources = ["tax-en-0001"]
+
+[[case]]
+id = "conflict-010"
+split = "holdout"
+category = "conflict"
+language = "en"
+topic = "ev"
+question = "How much range do electric cars lose in a Georgian winter?"
+behavior = "flag_conflict"
+key_points = ["typically 15-25% at around 0 degrees (owners' association test)", "a dealer's claim of under 5% is not reliable"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+traps = ["TR11"]
+[[case.facts]]
+statement = "Typical winter range loss at around 0 degrees is 15 to 25%."
+values = ["15", "25%"]
+sources = ["ev-en-0037"]
+
+[[case]]
+id = "conflict-011"
+split = "dev"
+category = "conflict"
+language = "en"
+topic = "ev"
+question = "Do I have to pay VAT when I import a battery electric car in 2026?"
+behavior = "flag_conflict"
+key_points = ["exempt for imports declared until 31 December 2026", "a blog claiming 18% VAT is back is wrong"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+traps = ["TR12"]
+[[case.facts]]
+statement = "Imports of battery electric cars declared until 31 December 2026 are exempt from VAT."
+values = ["31 December 2026"]
+sources = ["ev-en-0001", "ev-en-0002", "ev-en-0011"]
+
+[[case]]
+id = "conflict-012"
+split = "dev"
+category = "conflict"
+language = "ka"
+topic = "ev"
+question = "რა ღირს VoltLine-ის სადგურზე სწრაფი DC დატენვა?"
+behavior = "flag_conflict"
+key_points = ["0.85 ლარი 1 კვტ.სთ-ზე", "ფორუმის 1.20 ლარი არასანდოა"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+traps = ["TR13"]
+[[case.facts]]
+statement = "VoltLine DC fast charging costs 0.85 GEL per kWh."
+values = ["0.85"]
+sources = ["ev-ka-0010"]
+
+[[case]]
+id = "conflict-013"
+split = "dev"
+category = "conflict"
+language = "ka"
+topic = "tax"
+question = "რა ღირს ინდივიდუალურ მეწარმედ რეგისტრაცია საჯარო რეესტრში?"
+behavior = "flag_conflict"
+key_points = ["50 ლარი (მომდევნო სამუშაო დღე)", "100 ლარი იმავე დღეს", "ფორუმის 150 ლარი არასანდოა"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+traps = ["TR14"]
+[[case.facts]]
+statement = "Standard registration costs 50 GEL, same-day 100 GEL."
+values = ["50", "100"]
+sources = ["tax-ka-0003"]
