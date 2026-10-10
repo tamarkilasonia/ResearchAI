@@ -453,3 +453,15 @@ async def test_conflicts_removed_by_the_verifier_are_restored_from_the_template(
     assert "512 public charging points" in section.sentences[0].text
     assert "385 public charging points" in section.sentences[0].text
     assert result.report.insufficient == []
+
+
+async def test_search_mode_follows_the_embedder_unless_set() -> None:
+    hashed = FakeTools()
+    await agent(hashed).run(CHARGING_Q)
+    semantic = FakeTools()
+    await agent(semantic, embedding_provider="ollama").run(CHARGING_Q)
+    pinned = FakeTools()
+    await agent(pinned, embedding_provider="ollama", search_mode="keyword").run(CHARGING_Q)
+    assert set(hashed.modes) == {"hybrid"}  # the hash embedder has no semantic signal
+    assert set(semantic.modes) == {"vector"}
+    assert set(pinned.modes) == {"keyword"}

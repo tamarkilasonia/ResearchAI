@@ -40,6 +40,7 @@ class ResearchAgent:
             budget=budget,
             max_output_tokens=self._settings.llm_max_output_tokens,
             max_evidence_tokens=self._settings.llm_writer_evidence_tokens,
+            search_mode=self._settings.agent_search_mode,
         )
         first_call = len(self._tools.calls)
         started = time.perf_counter()

@@ -72,7 +72,8 @@ def render_report(report: RunReport) -> str:
         f"| Dataset | {c.dataset} {c.dataset_version}, split `{c.split}`, "
         f"{len(c.case_ids)} cases |",
         f"| Mode | {c.mode}{f' ({c.model})' if c.model else ''} |",
-        f"| Corpus | {c.corpus_version} (`{c.manifest_sha256[:12]}`), embedder `{c.embedder}` |",
+        f"| Corpus | {c.corpus_version} (`{c.manifest_sha256[:12]}`) |",
+        f"| Retrieval | embedder `{c.embedder}`, search mode `{c.search_mode}` |",
         f"| Code | `{c.git_commit or 'unknown'}` |",
         f"| Started | {c.started_at.isoformat(timespec='seconds')} ({duration / 60:.1f} min) |",
         "",
