@@ -1,0 +1,136 @@
+# The corpus does not contain the answer: the agent must abstain or say
+# "insufficient evidence", never guess.
+
+[[case]]
+id = "unanswerable-001"
+split = "dev"
+category = "unanswerable"
+language = "en"
+topic = "ev"
+question = "What is the price of a Tesla Cybertruck in Georgia?"
+behavior = "abstain"
+missing = ["Tesla Cybertruck"]
+expected_tools = ["search_corpus"]
+
+[[case]]
+id = "unanswerable-002"
+split = "holdout"
+category = "unanswerable"
+language = "en"
+topic = "ev"
+question = "How many public charging points does Armenia have?"
+behavior = "abstain"
+missing = ["charging statistics for Armenia"]
+expected_tools = ["search_corpus"]
+notes = "Armenia is mentioned once (tourists in Batumi), so an entity check alone does not abstain."
+
+[[case]]
+id = "unanswerable-003"
+split = "dev"
+category = "unanswerable"
+language = "en"
+topic = "ev"
+question = "What import duty does Azerbaijan charge on electric cars?"
+behavior = "abstain"
+missing = ["Azerbaijan"]
+expected_tools = ["search_corpus"]
+
+[[case]]
+id = "unanswerable-004"
+split = "dev"
+category = "unanswerable"
+language = "en"
+topic = "ev"
+question = "How much does a Rivian R1T cost in Tbilisi?"
+behavior = "abstain"
+missing = ["Rivian R1T"]
+expected_tools = ["search_corpus"]
+
+[[case]]
+id = "unanswerable-005"
+split = "holdout"
+category = "unanswerable"
+language = "en"
+topic = "ev"
+question = "What is the average waiting time at VoltLine fast chargers in Batumi?"
+behavior = "abstain"
+missing = ["waiting times at chargers"]
+expected_tools = ["search_corpus"]
+
+[[case]]
+id = "unanswerable-006"
+split = "dev"
+category = "unanswerable"
+language = "en"
+topic = "ev"
+question = "Which Georgian bank offers the cheapest car loan for electric cars?"
+behavior = "abstain"
+missing = ["car loans"]
+expected_tools = ["search_corpus"]
+
+[[case]]
+id = "unanswerable-007"
+split = "holdout"
+category = "unanswerable"
+language = "en"
+topic = "tax"
+question = "What is the small business tax rate for individual entrepreneurs in Armenia?"
+behavior = "abstain"
+missing = ["Armenian tax regime"]
+expected_tools = ["search_corpus"]
+
+[[case]]
+id = "unanswerable-008"
+split = "dev"
+category = "unanswerable"
+language = "en"
+topic = "ev"
+question = "How many electric scooters were sold in Tbilisi in 2025?"
+behavior = "abstain"
+missing = ["electric scooter sales"]
+expected_tools = ["search_corpus"]
+notes = "The corpus has scooter traffic rules, not sales figures."
+
+[[case]]
+id = "unanswerable-009"
+split = "dev"
+category = "unanswerable"
+language = "en"
+topic = "ev"
+question = "What share of imported passenger cars were battery electric in 2015?"
+behavior = "abstain"
+missing = ["import statistics before 2021"]
+expected_tools = ["search_corpus"]
+
+[[case]]
+id = "unanswerable-010"
+split = "dev"
+category = "unanswerable"
+language = "en"
+topic = "tax"
+question = "For how many years must a small business status holder keep invoices and receipts?"
+behavior = "abstain"
+missing = ["record retention period"]
+expected_tools = ["search_corpus"]
+
+[[case]]
+id = "unanswerable-011"
+split = "dev"
+category = "unanswerable"
+language = "ka"
+topic = "ev"
+question = "რა ღირს Tesla Cybertruck საქართველოში?"
+behavior = "abstain"
+missing = ["Tesla Cybertruck"]
+expected_tools = ["search_corpus"]
+
+[[case]]
+id = "unanswerable-012"
+split = "holdout"
+category = "unanswerable"
+language = "ka"
+topic = "tax"
+question = "რამდენია მცირე ბიზნესის გადასახადის განაკვეთი აზერბაიჯანში?"
+behavior = "abstain"
+missing = ["Azerbaijan"]
+expected_tools = ["search_corpus"]

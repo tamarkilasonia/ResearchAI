@@ -1,0 +1,210 @@
+# Outdated information: a newer source replaced an older value. The report must give
+# the current value and never present the old one as current.
+
+[[case]]
+id = "outdated-001"
+split = "dev"
+category = "outdated"
+language = "en"
+topic = "ev"
+question = "What is the Tbilisi household electricity tariff for monthly consumption between 101 and 301 kWh?"
+behavior = "answer"
+key_points = ["0.292 GEL per kWh since 1 January 2025"]
+outdated_values = ["0.248"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+traps = ["TR30"]
+[[case.facts]]
+statement = "Since 1 January 2025 the 101-301 kWh tariff is 0.292 GEL per kWh."
+values = ["0.292"]
+sources = ["ev-en-0029"]
+
+[[case]]
+id = "outdated-002"
+split = "dev"
+category = "outdated"
+language = "en"
+topic = "ev"
+question = "How much does home charging cost per kWh in Tbilisi for a household that uses about 250 kWh a month?"
+behavior = "answer"
+key_points = ["250 kWh falls in the 101-301 kWh block", "0.292 GEL per kWh"]
+outdated_values = ["0.248"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+traps = ["TR30"]
+[[case.facts]]
+statement = "The 101-301 kWh tariff is 0.292 GEL per kWh."
+values = ["0.292"]
+sources = ["ev-en-0029"]
+
+[[case]]
+id = "outdated-003"
+split = "dev"
+category = "outdated"
+language = "ka"
+topic = "ev"
+question = "რა ღირს ელექტროენერგია თბილისში, თუ თვეში 101 კვტ.სთ-მდე ვხარჯავ?"
+behavior = "answer"
+key_points = ["0,239 ლარი 1 კვტ.სთ-ზე 2025 წლის 1 იანვრიდან"]
+outdated_values = ["0.198"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+traps = ["TR31"]
+[[case.facts]]
+statement = "The tariff up to 101 kWh is 0.239 GEL per kWh since 2025."
+values = ["0.239"]
+sources = ["ev-ka-0011"]
+
+[[case]]
+id = "outdated-004"
+split = "dev"
+category = "outdated"
+language = "en"
+topic = "ev"
+question = "How much VAT would I pay today when importing a used Nissan Leaf with a customs value of 20,000 GEL?"
+behavior = "answer"
+key_points = ["no VAT: imports are exempt until 31 December 2026", "the 3,600 GEL figure applied before 2024"]
+outdated_values = ["3600"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+traps = ["TR32"]
+notes = "18% may be mentioned as the rate outside the exemption period."
+[[case.facts]]
+statement = "Battery electric car imports are exempt from VAT until 31 December 2026."
+values = ["exempt", "31 December 2026"]
+sources = ["ev-en-0001", "ev-en-0002"]
+
+[[case]]
+id = "outdated-005"
+split = "holdout"
+category = "outdated"
+language = "en"
+topic = "tax"
+question = "What income tax rate does an individual entrepreneur with small business status pay on turnover?"
+behavior = "answer"
+key_points = ["1% of turnover", "the 5% rate ended in 2017"]
+outdated_values = ["5%"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+traps = ["TR33"]
+[[case.facts]]
+statement = "The rate is 1% of turnover."
+values = ["1%"]
+sources = ["tax-en-0001"]
+
+[[case]]
+id = "outdated-006"
+split = "dev"
+category = "outdated"
+language = "en"
+topic = "tax"
+question = "How often do small business status holders file tax returns, and when are they due?"
+behavior = "answer"
+key_points = ["monthly", "by the 15th of the following month", "the annual 1 April return ended with 2020"]
+outdated_values = ["1 April"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+traps = ["TR34"]
+[[case.facts]]
+statement = "Since 2021 returns are monthly, due by the 15th of the following month."
+values = ["15th"]
+sources = ["tax-en-0002"]
+
+[[case]]
+id = "outdated-007"
+split = "dev"
+category = "outdated"
+language = "en"
+topic = "ev"
+question = "Can electric cars park for free in Tbilisi's municipal parking zones?"
+behavior = "answer"
+key_points = ["free parking ended on 31 December 2023", "50% discount on the annual permit: 90 GEL instead of 180 GEL"]
+outdated_values = ["free of charge"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+traps = ["TR35"]
+notes = "Text value: presenting free parking as the current rule is the error."
+[[case.facts]]
+statement = "The free parking pilot ended on 31 December 2023; EVs now pay 90 GEL for the annual permit."
+values = ["31 December 2023", "90"]
+sources = ["ev-en-0062"]
+
+[[case]]
+id = "outdated-008"
+split = "holdout"
+category = "outdated"
+language = "en"
+topic = "ev"
+question = "What is the longest distance between DC fast chargers on the highway from Tbilisi to Batumi?"
+behavior = "answer"
+key_points = ["85 km between Khashuri and Zestaponi", "it was about 160 km in 2023"]
+outdated_values = ["160"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+traps = ["TR36"]
+[[case.facts]]
+statement = "The longest gap is 85 km, between Khashuri and Zestaponi."
+values = ["85"]
+sources = ["ev-en-0018", "ev-ka-0006"]
+
+[[case]]
+id = "outdated-009"
+split = "dev"
+category = "outdated"
+language = "en"
+topic = "ev"
+question = "What does a used Tesla Model 3 rear-wheel drive 2020-2021 cost in Georgia?"
+behavior = "answer"
+key_points = ["52,000-60,000 GEL (August 2026)", "prices were 68,000-78,000 GEL in September 2023"]
+outdated_values = ["68000", "78000"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+traps = ["TR37"]
+[[case.facts]]
+statement = "A used Model 3 RWD 2020-2021 typically costs 52,000-60,000 GEL (August 2026)."
+values = ["52000", "60000"]
+sources = ["ev-en-0108", "ev-en-0045"]
+
+[[case]]
+id = "outdated-010"
+split = "holdout"
+category = "outdated"
+language = "en"
+topic = "ev"
+question = "How many public charging points are there in Georgia?"
+behavior = "answer"
+key_points = ["512 in June 2026", "older counts (290 in January 2024) are outdated"]
+outdated_values = ["290"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+traps = ["TR38"]
+[[case.facts]]
+statement = "Georgia had 512 public charging points in June 2026."
+values = ["512"]
+sources = ["ev-en-0013", "ev-en-0026"]
+
+[[case]]
+id = "outdated-011"
+split = "dev"
+category = "outdated"
+language = "ka"
+topic = "tax"
+question = "რა არის მცირე ბიზნესის სტატუსისთვის წლიური ბრუნვის ზღვარი?"
+behavior = "answer"
+key_points = ["500 000 ლარი", "100 000 ლარი 2018 წლამდე მოქმედებდა"]
+outdated_values = ["100000"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+traps = ["TR39"]
+notes = "100,000 GEL may appear legitimately as the VAT registration threshold."
+[[case.facts]]
+statement = "The limit is 500,000 GEL per year."
+values = ["500000"]
+sources = ["tax-ka-0001", "tax-ka-0008"]
+
+[[case]]
+id = "outdated-012"
+split = "holdout"
+category = "outdated"
+language = "ka"
+topic = "ev"
+question = "შეუძლიათ თუ არა ელექტრომობილებს თბილისში მუნიციპალურ ზონებში უფასოდ პარკირება?"
+behavior = "answer"
+key_points = ["უფასო პარკირება 2023 წლის ბოლოს დასრულდა", "წლიური აბონემენტი ელექტრომობილისთვის 90 ლარია"]
+outdated_values = ["უფასოდ"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+traps = ["TR40"]
+notes = "Text value: presenting free parking as the current rule is the error."
+[[case.facts]]
+statement = "Free parking ended in 2023; the EV annual permit costs 90 GEL."
+values = ["90"]
+sources = ["ev-ka-0029"]

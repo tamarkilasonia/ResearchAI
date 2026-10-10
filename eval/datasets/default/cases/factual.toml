@@ -1,0 +1,241 @@
+# Factual lookups: one fact, answered from one or two documents.
+
+[[case]]
+id = "factual-001"
+split = "dev"
+category = "factual"
+language = "en"
+topic = "ev"
+question = "How many public charging points did Georgia have in June 2026?"
+behavior = "answer"
+key_points = ["512 public charging points in the June 2026 registry"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "The national registry listed 512 public charging points in June 2026."
+values = ["512"]
+sources = ["ev-en-0013", "ev-en-0026"]
+
+[[case]]
+id = "factual-002"
+split = "holdout"
+category = "factual"
+language = "en"
+topic = "ev"
+question = "How many DC fast charging points of 50 kW or more are in the June 2026 charging registry?"
+behavior = "answer"
+key_points = ["146 DC fast charging points"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "146 of the public charging points are DC fast charging points (50 kW or more)."
+values = ["146"]
+sources = ["ev-en-0013"]
+
+[[case]]
+id = "factual-003"
+split = "dev"
+category = "factual"
+language = "en"
+topic = "ev"
+question = "What is the customs clearance service fee for importing a car into Georgia?"
+behavior = "answer"
+key_points = ["150 GEL per vehicle"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "The customs clearance service fee is 150 GEL per vehicle."
+values = ["150"]
+sources = ["ev-en-0001", "ev-en-0006"]
+
+[[case]]
+id = "factual-004"
+split = "holdout"
+category = "factual"
+language = "en"
+topic = "ev"
+question = "How much does standard first registration of a car cost in Georgia, and how long does it take?"
+behavior = "answer"
+key_points = ["115 GEL", "5 working days"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "Standard registration costs 115 GEL and takes 5 working days."
+values = ["115", "5 working days"]
+sources = ["ev-en-0008"]
+
+[[case]]
+id = "factual-005"
+split = "dev"
+category = "factual"
+language = "en"
+topic = "ev"
+question = "Do battery electric cars pay excise tax when they are imported into Georgia?"
+behavior = "answer"
+key_points = ["battery electric cars are exempt from excise", "hybrids are not covered by the exemption"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "Battery electric vehicles are exempt from vehicle excise tax."
+values = ["exempt"]
+sources = ["ev-en-0001", "ev-en-0005"]
+
+[[case]]
+id = "factual-006"
+split = "dev"
+category = "factual"
+language = "en"
+topic = "ev"
+question = "What share of the standard excise tax do hybrid cars pay from 2026?"
+behavior = "answer"
+key_points = ["70% of the standard excise from 1 January 2026", "40% until the end of 2025"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "From 2026 hybrids pay 70% of the standard excise amount."
+values = ["70%"]
+sources = ["ev-en-0005"]
+
+[[case]]
+id = "factual-007"
+split = "dev"
+category = "factual"
+language = "en"
+topic = "ev"
+question = "Who operates the first DC fast charger on the road to Gudauri, and how powerful is it?"
+behavior = "answer"
+key_points = ["eRoute", "60 kW"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "eRoute opened the first DC fast charger in Gudauri, rated 60 kW."
+values = ["eRoute", "60 kW"]
+sources = ["ev-en-0017"]
+
+[[case]]
+id = "factual-008"
+split = "holdout"
+category = "factual"
+language = "en"
+topic = "ev"
+question = "What share of public fast-charging attempts failed in the 2025 owners' reliability survey?"
+behavior = "answer"
+key_points = ["14% of fast-charging attempts failed", "reasons: out of order, occupied, payment problems"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "14% of fast-charging attempts failed in the 2025 survey."
+values = ["14%"]
+sources = ["ev-en-0020"]
+
+[[case]]
+id = "factual-009"
+split = "holdout"
+category = "factual"
+language = "en"
+topic = "ev"
+question = "How much does Tbilisi Grid Company charge to upgrade a home connection to three phases?"
+behavior = "answer"
+key_points = ["900 GEL", "usually within 20 working days"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "The single- to three-phase upgrade costs 900 GEL."
+values = ["900"]
+sources = ["ev-en-0022", "ev-en-0021"]
+
+[[case]]
+id = "factual-010"
+split = "holdout"
+category = "factual"
+language = "en"
+topic = "ev"
+question = "What is Georgia's target for zero-emission cars among newly registered passenger cars by 2030?"
+behavior = "answer"
+key_points = ["at least 20% of new registrations by 2030"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "At least 20% of newly registered passenger cars should be zero-emission by 2030."
+values = ["20%"]
+sources = ["ev-en-0056", "ev-en-0026"]
+
+[[case]]
+id = "factual-011"
+split = "dev"
+category = "factual"
+language = "en"
+topic = "ev"
+question = "What share of Georgia's electricity generation came from hydropower in 2025?"
+behavior = "answer"
+key_points = ["about 78% hydropower", "winter relies more on gas and imports"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "About 78% of electricity generation in 2025 came from hydropower."
+values = ["78%"]
+sources = ["ev-en-0035"]
+
+[[case]]
+id = "factual-012"
+split = "dev"
+category = "factual"
+language = "en"
+topic = "tax"
+question = "What tax rate does an individual entrepreneur with small business status pay?"
+behavior = "answer"
+key_points = ["1% of turnover", "expenses are not deducted"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "Small business status holders pay income tax at 1% of turnover."
+values = ["1%"]
+sources = ["tax-en-0001", "tax-en-0010"]
+
+[[case]]
+id = "factual-013"
+split = "dev"
+category = "factual"
+language = "en"
+topic = "tax"
+question = "When does a business have to register for VAT in Georgia?"
+behavior = "answer"
+key_points = ["taxable supplies above 100,000 GEL in any continuous 12 months", "apply within 2 working days", "applies to small business status holders too"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "VAT registration is required once taxable supplies in any 12 months exceed 100,000 GEL, within 2 working days."
+values = ["100000", "2 working days"]
+sources = ["tax-en-0006"]
+
+[[case]]
+id = "factual-014"
+split = "dev"
+category = "factual"
+language = "en"
+topic = "tax"
+question = "What is the fine for a first violation of the cash register rules for small businesses?"
+behavior = "answer"
+key_points = ["500 GEL for a first violation"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "The fine for a first cash register violation is 500 GEL."
+values = ["500"]
+sources = ["tax-en-0009"]
+
+[[case]]
+id = "factual-015"
+split = "dev"
+category = "factual"
+language = "en"
+topic = "tax"
+question = "How many individual entrepreneurs held small business status at the end of 2025?"
+behavior = "answer"
+key_points = ["192,000 at the end of 2025"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "192,000 individual entrepreneurs held small business status at the end of 2025."
+values = ["192000"]
+sources = ["tax-en-0018"]
+
+[[case]]
+id = "factual-016"
+split = "dev"
+category = "factual"
+language = "en"
+topic = "ev"
+question = "How much does a battery state-of-health diagnostic cost in Tbilisi?"
+behavior = "answer"
+key_points = ["60 to 120 GEL"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "A battery diagnostic costs between 60 and 120 GEL in Tbilisi."
+values = ["60", "120"]
+sources = ["ev-en-0072"]

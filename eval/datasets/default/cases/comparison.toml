@@ -1,0 +1,206 @@
+# Multi-source comparisons.
+
+[[case]]
+id = "comparison-001"
+split = "dev"
+category = "comparison"
+language = "en"
+topic = "ev"
+question = "Compare the annual maintenance costs of electric and petrol cars in Georgia."
+behavior = "answer"
+key_points = ["electric 280-350 GEL a year", "petrol sedan 850-1,100 GEL a year", "tyres excluded"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "Annual maintenance costs 280 to 350 GEL for an electric car."
+values = ["280", "350"]
+sources = ["ev-en-0057"]
+[[case.facts]]
+statement = "Annual maintenance costs 850 to 1,100 GEL for a comparable petrol sedan."
+values = ["850", "1100"]
+sources = ["ev-en-0057"]
+
+[[case]]
+id = "comparison-002"
+split = "holdout"
+category = "comparison"
+language = "en"
+topic = "ev"
+question = "How do public AC charging prices compare between VoltLine, ChargeGE and Mtsvane Charge?"
+behavior = "answer"
+key_points = ["VoltLine 0.55 GEL/kWh", "ChargeGE 0.50 GEL/kWh", "Mtsvane Charge 0.49 GEL/kWh"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "VoltLine AC charging costs 0.55 GEL per kWh."
+values = ["0.55"]
+sources = ["ev-en-0024", "ev-en-0086"]
+[[case.facts]]
+statement = "ChargeGE AC charging costs 0.50 GEL per kWh."
+values = ["0.50"]
+sources = ["ev-en-0027", "ev-en-0091"]
+[[case.facts]]
+statement = "Mtsvane Charge AC charging costs 0.49 GEL per kWh."
+values = ["0.49"]
+sources = ["ev-en-0028", "ev-en-0100"]
+
+[[case]]
+id = "comparison-003"
+split = "dev"
+category = "comparison"
+language = "en"
+topic = "ev"
+question = "Compare the energy cost per 100 km of a Nissan Leaf charged at home with a Toyota Prius hybrid."
+behavior = "answer"
+key_points = ["Leaf at home 4.91 GEL per 100 km", "Prius 14.03 GEL per 100 km", "fast charging brings the Leaf close to the Prius"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "A Leaf charged at home costs 4.91 GEL per 100 km."
+values = ["4.91"]
+sources = ["ev-en-0067", "ev-en-0036"]
+[[case.facts]]
+statement = "A Toyota Prius 2016 hybrid costs 14.03 GEL per 100 km."
+values = ["14.03"]
+sources = ["ev-en-0067"]
+
+[[case]]
+id = "comparison-004"
+split = "dev"
+category = "comparison"
+language = "en"
+topic = "ev"
+question = "How does the 2026 price of a used Chevrolet Bolt 2020-2021 compare with a Nissan Leaf 40 kWh 2018-2019?"
+behavior = "answer"
+key_points = ["Bolt 36,000-43,000 GEL", "Leaf 21,000-26,000 GEL"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "A used Chevrolet Bolt 2020-2021 typically costs 36,000-43,000 GEL."
+values = ["36000", "43000"]
+sources = ["ev-en-0045", "ev-en-0111"]
+[[case.facts]]
+statement = "A used Nissan Leaf 40 kWh 2018-2019 typically costs 21,000-26,000 GEL."
+values = ["21000", "26000"]
+sources = ["ev-en-0045", "ev-en-0106"]
+
+[[case]]
+id = "comparison-005"
+split = "holdout"
+category = "comparison"
+language = "en"
+topic = "ev"
+question = "How much value did used electric cars lose in 2025 compared with petrol cars?"
+behavior = "answer"
+key_points = ["electric cars lost 18%", "petrol cars lost 9%", "hybrids lost 8%"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "Used electric cars lost 18% of their value in 2025, petrol cars 9%."
+values = ["18%", "9%"]
+sources = ["ev-en-0066", "ev-en-0045"]
+
+[[case]]
+id = "comparison-006"
+split = "dev"
+category = "comparison"
+language = "en"
+topic = "ev"
+question = "How do comprehensive insurance rates for Teslas compare with typical passenger cars in Georgia?"
+behavior = "answer"
+key_points = ["typical CASCO 3.5-5% of market value a year", "Teslas 4.5-6%"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "CASCO insurance typically costs 3.5 to 5% of market value per year."
+values = ["3.5", "5%"]
+sources = ["ev-en-0059"]
+[[case.facts]]
+statement = "Insurers quote 4.5 to 6% for Teslas."
+values = ["4.5", "6%"]
+sources = ["ev-en-0059"]
+
+[[case]]
+id = "comparison-007"
+split = "dev"
+category = "comparison"
+language = "en"
+topic = "ev"
+question = "Compare the DC fast charging prices of VoltLine, ChargeGE and eRoute in 2026."
+behavior = "answer"
+key_points = ["VoltLine 0.85 GEL/kWh", "ChargeGE 0.79 GEL/kWh", "eRoute 0.89 GEL/kWh"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "VoltLine DC fast charging costs 0.85 GEL per kWh."
+values = ["0.85"]
+sources = ["ev-en-0024", "ev-en-0086"]
+[[case.facts]]
+statement = "ChargeGE DC fast charging costs 0.79 GEL per kWh."
+values = ["0.79"]
+sources = ["ev-en-0027", "ev-en-0091"]
+[[case.facts]]
+statement = "eRoute DC fast charging costs 0.89 GEL per kWh."
+values = ["0.89"]
+sources = ["ev-en-0095", "ev-en-0098"]
+
+[[case]]
+id = "comparison-008"
+split = "dev"
+category = "comparison"
+language = "en"
+topic = "tax"
+question = "What is the difference between micro business status and small business status?"
+behavior = "answer"
+key_points = ["micro: turnover up to 30,000 GEL, no employees, income tax exempt", "small: turnover up to 500,000 GEL, 1% of turnover", "the two cannot be combined"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "Micro business status: annual turnover up to 30,000 GEL and no employees; income is exempt from income tax."
+values = ["30000"]
+sources = ["tax-en-0007"]
+[[case.facts]]
+statement = "Small business status: turnover up to 500,000 GEL, taxed at 1% of turnover."
+values = ["500000", "1%"]
+sources = ["tax-en-0001"]
+
+[[case]]
+id = "comparison-009"
+split = "dev"
+category = "comparison"
+language = "en"
+topic = "tax"
+question = "How does the corporate income tax on a company's distributed profits compare with the small business tax of an individual entrepreneur?"
+behavior = "answer"
+key_points = ["companies: 15% when profits are distributed", "small business IE: 1% of turnover", "the company regime does not apply to individual entrepreneurs"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "Companies pay 15% corporate income tax on distributed profits."
+values = ["15%"]
+sources = ["tax-en-0022"]
+[[case.facts]]
+statement = "An IE with small business status pays 1% of turnover."
+values = ["1%"]
+sources = ["tax-en-0001"]
+
+[[case]]
+id = "comparison-010"
+split = "dev"
+category = "comparison"
+language = "en"
+topic = "ev"
+question = "Which uses more energy per 100 km in real driving, a Hyundai Ioniq 5 or a Tesla Model 3 rear-wheel drive?"
+behavior = "answer"
+key_points = ["Ioniq 5 18.6 kWh per 100 km", "Model 3 RWD 14.9 kWh per 100 km"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "The Ioniq 5 uses 18.6 kWh and the Model 3 RWD 14.9 kWh per 100 km."
+values = ["18.6", "14.9"]
+sources = ["ev-en-0058"]
+
+[[case]]
+id = "comparison-011"
+split = "holdout"
+category = "comparison"
+language = "en"
+topic = "ev"
+question = "How much winter range do electric cars with a heat pump lose compared with cars without one?"
+behavior = "answer"
+key_points = ["typical loss 15-25% at around 0 degrees", "heat pump cars 10-15%", "Leaf (no heat pump) at the upper end"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "Typical winter range loss is 15 to 25%; cars with a heat pump lose 10 to 15%."
+values = ["15", "25%", "10"]
+sources = ["ev-en-0037"]

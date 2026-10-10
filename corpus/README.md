@@ -29,9 +29,13 @@ for real decisions.
 - **Formatting varies on purpose.** Some Georgian documents use a comma as the
   decimal separator (`0,55 ლარი`) and a space as the thousands separator
   (`86 900`), as real Georgian sources often do.
-- **Planted traps come later.** Contradictions, unreliable outliers and hidden
-  prompt injections are added in a later corpus version, together with a
-  ground-truth registry (see `CHANGELOG.md`).
+- **Some documents are traps (since 1.1.0).** A few documents contradict
+  reliable sources about the same period, a few low-reliability sources (forum,
+  dealer, blog) state wrong values, and a few contain hidden instructions aimed at
+  an AI reader (explicit and paraphrased, in both languages). Their metadata looks
+  like any other document's; the ground truth lives outside the corpus, in
+  [`eval/traps.toml`](../eval/traps.toml), so the agent cannot read it through
+  its tools. Trap documents are as synthetic as all the others.
 
 Synthetic documents avoid licensing problems entirely. If real sources are ever
 added, they must carry `synthetic = false`, a real `https` URL and their actual
