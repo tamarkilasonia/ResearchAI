@@ -19,6 +19,7 @@ from typing import Any
 from researchai.config import LogFormat, Settings
 
 _run_id: ContextVar[str | None] = ContextVar("run_id", default=None)
+_request_id: ContextVar[str | None] = ContextVar("request_id", default=None)
 
 # Attributes every LogRecord has; anything else was passed via ``extra=``.
 _STANDARD_ATTRS = frozenset(
@@ -39,6 +40,19 @@ def current_run_id() -> str | None:
     return _run_id.get()
 
 
+@contextmanager
+def bind_request_id(request_id: str) -> Iterator[None]:
+    token = _request_id.set(request_id)
+    try:
+        yield
+    finally:
+        _request_id.reset(token)
+
+
+def current_request_id() -> str | None:
+    return _request_id.get()
+
+
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, Any] = {
@@ -50,6 +64,9 @@ class JsonFormatter(logging.Formatter):
         run_id = _run_id.get()
         if run_id is not None:
             payload["run_id"] = run_id
+        request_id = _request_id.get()
+        if request_id is not None:
+            payload["request_id"] = request_id
         for key, value in vars(record).items():
             if key not in _STANDARD_ATTRS and not key.startswith("_"):
                 payload[key] = value
