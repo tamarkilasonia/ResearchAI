@@ -73,7 +73,7 @@ from researchai.agent.synthesis import (
     fit_evidence,
     llm_report,
 )
-from researchai.agent.verification import Findings
+from researchai.agent.verification import Findings, restore_conflicts
 from researchai.corpus.models import Topic
 from researchai.mcp_client.client import ToolCallError
 from researchai.safety.documents import instruction_spans
@@ -597,10 +597,12 @@ async def verify_citations(
     except ToolCallError as exc:
         # Unverifiable citations must not reach the user: no report instead.
         raise _fatal(exc) from exc
+    cleaned, restored = restore_conflicts(cleaned, findings_of(state), state.get("evidence", []))
     return {
         "report": cleaned,
         "citation_report": summary,
         "_detail": {
+            "conflicts_restored": restored,
             "precision": summary.precision,
             "citations": summary.citations_total,
             "verified_spans": summary.citations_verified,

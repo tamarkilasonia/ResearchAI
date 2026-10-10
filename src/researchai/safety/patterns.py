@@ -183,7 +183,12 @@ DOCUMENT_RULES: tuple[Rule, ...] = (
           r"\b(attention|note|message|instructions?)\s+(to|for)\s+(any\s+|all\s+)?(ai|llms?|"
           r"language\s+models?|assistants?|chatbots?|bots?|ai\s+systems?)\b|"
           r"\b(ai|llm|language\s+model|chatbot|ai\s+assistant)s?\s+(reading|processing|"
-          r"summari[sz]ing|that\s+reads?)\b"),
+          r"summari[sz]ing|that\s+reads?)\b|"
+          r"\b(guidance|note|notice|instructions?|message)\s+(to|for)\s+(any\s+|all\s+)?"
+          r"(automated|machine|automatic)\s+(summar\w*|readers?|systems?|tools?|agents?|"
+          r"assistants?|answers?)\b|"
+          r"\b(automated|machine)\s+(summar\w*|readers?|systems?|tools?|agents?|assistants?)\s+"
+          r"(must|should|shall|are\s+(asked|required|instructed)\s+to)\b"),
     _rule("answer_directive", "prompt_injection",
           r"\b(tell|inform|convince|assure)\s+the\s+(user|reader)\b|"
           r"\b(always|only)\s+(answer|respond|reply)\b|\brespond\s+(only\s+)?with\b|"
