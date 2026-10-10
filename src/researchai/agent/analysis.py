@@ -20,6 +20,7 @@ from researchai.agent.llm import LLMClient, LLMError, structured_call
 from researchai.agent.models import Calculation, Evidence
 from researchai.agent.prompts import ANALYST_SYSTEM, analyst_user
 from researchai.mcp_client.client import ToolCallError
+from researchai.safety.documents import neutralize
 from researchai.tools.schemas import CalculationResponse
 
 MAX_CALCULATIONS = 4
@@ -102,7 +103,9 @@ def check_grounded(proposal: _ProposedCalculation, evidence: Mapping[str, Eviden
     unknown = [e for e in proposal.evidence_ids if e not in evidence]
     if unknown:
         return f"unknown evidence ids {unknown}"
-    available = set().union(*(evidence_numbers(evidence[e].text) for e in proposal.evidence_ids))
+    available = set().union(
+        *(evidence_numbers(neutralize(evidence[e].text)) for e in proposal.evidence_ids)
+    )
     try:
         values = operands(proposal.expression)
     except LLMError as exc:
