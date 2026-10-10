@@ -1,0 +1,283 @@
+# Numeric questions: the answer needs arithmetic on numbers from the evidence (calculate tool).
+
+[[case]]
+id = "numeric-001"
+split = "holdout"
+category = "numeric"
+language = "en"
+topic = "ev"
+question = "How much does it cost to drive 100 km in a Nissan Leaf 40 kWh charged at home in Tbilisi at the 101-301 kWh tariff?"
+behavior = "answer"
+key_points = ["16.8 kWh per 100 km", "0.292 GEL per kWh", "about 4.91 GEL per 100 km"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document", "calculate"]
+[case.calculation]
+expression = "16.8 * 0.292"
+result = 4.9056
+sources = ["ev-en-0058", "ev-en-0029"]
+[[case.facts]]
+statement = "A Leaf 40 kWh uses 16.8 kWh per 100 km."
+values = ["16.8"]
+sources = ["ev-en-0058"]
+[[case.facts]]
+statement = "The Tbilisi tariff for 101-301 kWh is 0.292 GEL per kWh."
+values = ["0.292"]
+sources = ["ev-en-0029"]
+
+[[case]]
+id = "numeric-002"
+split = "holdout"
+category = "numeric"
+language = "en"
+topic = "ev"
+question = "What would 100 km cost in a Tesla Model 3 rear-wheel drive charged only at VoltLine fast chargers?"
+behavior = "answer"
+key_points = ["14.9 kWh per 100 km", "0.85 GEL per kWh", "about 12.67 GEL per 100 km"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document", "calculate"]
+[case.calculation]
+expression = "14.9 * 0.85"
+result = 12.665
+sources = ["ev-en-0058", "ev-en-0086"]
+[[case.facts]]
+statement = "The Model 3 RWD uses 14.9 kWh per 100 km."
+values = ["14.9"]
+sources = ["ev-en-0058"]
+[[case.facts]]
+statement = "VoltLine DC fast charging costs 0.85 GEL per kWh."
+values = ["0.85"]
+sources = ["ev-en-0086", "ev-en-0024"]
+
+[[case]]
+id = "numeric-003"
+split = "holdout"
+category = "numeric"
+language = "en"
+topic = "ev"
+question = "By what percentage did the number of public charging points grow between January 2023 and June 2026?"
+behavior = "answer"
+key_points = ["210 in January 2023", "512 in June 2026", "growth of about 144%"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document", "calculate"]
+[case.calculation]
+expression = "(512 - 210) / 210 * 100"
+result = 143.8095
+sources = ["ev-en-0013", "ev-en-0015"]
+[[case.facts]]
+statement = "There were 210 public charging points on 1 January 2023."
+values = ["210"]
+sources = ["ev-en-0015"]
+[[case.facts]]
+statement = "There were 512 public charging points in June 2026."
+values = ["512"]
+sources = ["ev-en-0013"]
+
+[[case]]
+id = "numeric-004"
+split = "dev"
+category = "numeric"
+language = "en"
+topic = "ev"
+question = "How many registered battery electric cars were there per public charging point in mid-2026?"
+behavior = "answer"
+key_points = ["28,400 registered battery electric cars", "512 public charging points", "about 55 cars per point"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document", "calculate"]
+[case.calculation]
+expression = "28400 / 512"
+result = 55.46875
+sources = ["ev-en-0026"]
+[[case.facts]]
+statement = "About 28,400 battery electric cars and 512 public charging points in mid-2026: roughly one point per 55 cars."
+values = ["28400", "512", "55"]
+sources = ["ev-en-0026"]
+
+[[case]]
+id = "numeric-005"
+split = "dev"
+category = "numeric"
+language = "en"
+topic = "ev"
+question = "By how many percent did the registered battery electric car fleet grow during 2025?"
+behavior = "answer"
+key_points = ["17,300 at the end of 2024", "24,100 at the end of 2025", "growth of about 39%"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document", "calculate"]
+[case.calculation]
+expression = "(24100 - 17300) / 17300 * 100"
+result = 39.3064
+sources = ["ev-en-0049"]
+[[case.facts]]
+statement = "Registered battery electric cars rose from 17,300 to 24,100 during 2025."
+values = ["17300", "24100"]
+sources = ["ev-en-0049"]
+
+[[case]]
+id = "numeric-006"
+split = "dev"
+category = "numeric"
+language = "en"
+topic = "ev"
+question = "What is the most I should budget for a home wallbox plus the three-phase connection upgrade needed for an 11 kW charger?"
+behavior = "answer"
+key_points = ["wallbox quotes 1,200-1,800 GEL", "three-phase upgrade 900 GEL", "up to about 2,700 GEL"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document", "calculate"]
+[case.calculation]
+expression = "1800 + 900"
+result = 2700
+sources = ["ev-en-0021"]
+[[case.facts]]
+statement = "Wallbox installation quotes ranged from 1,200 to 1,800 GEL."
+values = ["1200", "1800"]
+sources = ["ev-en-0021"]
+[[case.facts]]
+statement = "The three-phase upgrade costs 900 GEL."
+values = ["900"]
+sources = ["ev-en-0022", "ev-en-0021"]
+
+[[case]]
+id = "numeric-007"
+split = "dev"
+category = "numeric"
+language = "en"
+topic = "ev"
+question = "How much cheaper per 100 km is a Nissan Leaf charged at home than a Toyota Camry 2.5 petrol?"
+behavior = "answer"
+key_points = ["Leaf 4.91 GEL", "Camry 25.32 GEL", "about 20.41 GEL cheaper per 100 km"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document", "calculate"]
+[case.calculation]
+expression = "25.32 - 4.91"
+result = 20.41
+sources = ["ev-en-0067"]
+[[case.facts]]
+statement = "Per 100 km the Leaf at home costs 4.91 GEL and the Camry 25.32 GEL."
+values = ["4.91", "25.32"]
+sources = ["ev-en-0067"]
+
+[[case]]
+id = "numeric-008"
+split = "dev"
+category = "numeric"
+language = "en"
+topic = "ev"
+question = "How much more does a new BYD Seal cost than a BYD Dolphin at the official dealer?"
+behavior = "answer"
+key_points = ["Seal 109,000 GEL", "Dolphin 62,500 GEL", "difference 46,500 GEL"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document", "calculate"]
+[case.calculation]
+expression = "109000 - 62500"
+result = 46500
+sources = ["ev-en-0046"]
+[[case.facts]]
+statement = "The BYD Seal costs 109,000 GEL and the Dolphin 62,500 GEL."
+values = ["109000", "62500"]
+sources = ["ev-en-0046"]
+
+[[case]]
+id = "numeric-009"
+split = "holdout"
+category = "numeric"
+language = "en"
+topic = "ev"
+question = "If the VAT exemption ends, how much VAT would be due on an electric car with a customs value of 20,000 GEL at the standard rate?"
+behavior = "answer"
+key_points = ["standard VAT rate 18%", "3,600 GEL on 20,000 GEL", "exempt until 31 December 2026"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document", "calculate"]
+[case.calculation]
+expression = "20000 * 18 / 100"
+result = 3600
+sources = ["ev-en-0001", "ev-en-0003"]
+[[case.facts]]
+statement = "The standard VAT rate of 18% applies outside the exemption period, which ends on 31 December 2026."
+values = ["18%", "31 December 2026"]
+sources = ["ev-en-0001"]
+
+[[case]]
+id = "numeric-010"
+split = "dev"
+category = "numeric"
+language = "en"
+topic = "tax"
+question = "How much small business tax does an entrepreneur pay on an annual turnover of 300,000 GEL?"
+behavior = "answer"
+key_points = ["1% of turnover", "3,000 GEL"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document", "calculate"]
+[case.calculation]
+expression = "300000 * 1 / 100"
+result = 3000
+sources = ["tax-en-0001"]
+[[case.facts]]
+statement = "Small business status holders pay 1% of turnover up to 500,000 GEL."
+values = ["1%", "500000"]
+sources = ["tax-en-0001"]
+
+[[case]]
+id = "numeric-011"
+split = "dev"
+category = "numeric"
+language = "en"
+topic = "tax"
+question = "An entrepreneur with small business status has an annual turnover of 540,000 GEL. How much tax is due on the part above the limit?"
+behavior = "answer"
+key_points = ["limit 500,000 GEL", "excess taxed at 3%", "1,200 GEL on the 40,000 GEL excess"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document", "calculate"]
+[case.calculation]
+expression = "(540000 - 500000) * 3 / 100"
+result = 1200
+sources = ["tax-en-0001"]
+[[case.facts]]
+statement = "Turnover above 500,000 GEL is taxed at 3%."
+values = ["500000", "3%"]
+sources = ["tax-en-0001", "tax-en-0010"]
+
+[[case]]
+id = "numeric-012"
+split = "dev"
+category = "numeric"
+language = "en"
+topic = "tax"
+question = "A developer with small business status invoices 9,000 GEL a month. How much income tax is that per year?"
+behavior = "answer"
+key_points = ["1% of turnover", "90 GEL a month", "1,080 GEL a year"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document", "calculate"]
+[case.calculation]
+expression = "9000 * 1 / 100 * 12"
+result = 1080
+sources = ["tax-en-0011"]
+[[case.facts]]
+statement = "A developer invoicing 9,000 GEL a month pays 90 GEL of income tax each month."
+values = ["9000", "90"]
+sources = ["tax-en-0011"]
+
+[[case]]
+id = "numeric-013"
+split = "dev"
+category = "numeric"
+language = "en"
+topic = "tax"
+question = "A small business tax return with 2,000 GEL of tax due is filed 3 months late. What is the late-filing penalty?"
+behavior = "answer"
+key_points = ["5% of the tax due per month", "capped at 30%", "300 GEL"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document", "calculate"]
+[case.calculation]
+expression = "2000 * 5 / 100 * 3"
+result = 300
+sources = ["tax-en-0008"]
+[[case.facts]]
+statement = "The penalty is 5% of the tax due per month of delay, up to 30%."
+values = ["5%", "30%"]
+sources = ["tax-en-0008"]
+
+[[case]]
+id = "numeric-014"
+split = "dev"
+category = "numeric"
+language = "en"
+topic = "ev"
+question = "What would a year of home charging cost for a Nissan Leaf 40 kWh driven 15,000 km at 0.292 GEL per kWh?"
+behavior = "answer"
+key_points = ["16.8 kWh per 100 km", "2,520 kWh a year", "about 736 GEL a year"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document", "calculate"]
+[case.calculation]
+expression = "15000 / 100 * 16.8 * 0.292"
+result = 735.84
+sources = ["ev-en-0058", "ev-en-0029"]
+[[case.facts]]
+statement = "A Leaf 40 kWh uses 16.8 kWh per 100 km."
+values = ["16.8"]
+sources = ["ev-en-0058"]

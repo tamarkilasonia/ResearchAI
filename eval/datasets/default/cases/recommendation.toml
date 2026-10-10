@@ -1,0 +1,203 @@
+# Recommendations: the answer must follow from cited facts and say what it depends on.
+
+[[case]]
+id = "recommendation-001"
+split = "holdout"
+category = "recommendation"
+language = "en"
+topic = "ev"
+question = "Should I buy an electric car in Georgia if I can charge at home and drive mostly in Tbilisi?"
+behavior = "answer"
+key_points = ["home charging is far cheaper than petrol per 100 km", "lower maintenance", "faster depreciation", "VAT exemption ends 31 December 2026"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "A Leaf charged at home costs 4.91 GEL per 100 km; a petrol Camry 25.32 GEL."
+values = ["4.91", "25.32"]
+sources = ["ev-en-0067", "ev-en-0036"]
+[[case.facts]]
+statement = "Annual maintenance is 280-350 GEL for an electric car and 850-1,100 GEL for a petrol sedan."
+values = ["280", "850"]
+sources = ["ev-en-0057"]
+[[case.facts]]
+statement = "Used electric cars lost 18% of their value in 2025."
+values = ["18%"]
+sources = ["ev-en-0066", "ev-en-0075"]
+
+[[case]]
+id = "recommendation-002"
+split = "dev"
+category = "recommendation"
+language = "en"
+topic = "ev"
+question = "I live in an apartment block without a private charging point. Is an electric car a good idea for me?"
+behavior = "answer"
+key_points = ["depends on public charging", "fast charging costs far more than home charging", "14% of fast-charging attempts fail", "41% of Tbilisi respondents are in the same situation"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "41% of Tbilisi respondents live in apartments without a private charging point."
+values = ["41%"]
+sources = ["ev-en-0020"]
+[[case.facts]]
+statement = "With fast charging at 0.85 GEL/kWh a Leaf costs 14.28 GEL per 100 km."
+values = ["14.28"]
+sources = ["ev-en-0067", "ev-en-0036"]
+[[case.facts]]
+statement = "14% of fast-charging attempts failed in 2025."
+values = ["14%"]
+sources = ["ev-en-0020"]
+
+[[case]]
+id = "recommendation-003"
+split = "dev"
+category = "recommendation"
+language = "en"
+topic = "ev"
+question = "With a budget of about 40,000 GEL, should I buy a used Nissan Leaf 40 kWh or a Chevrolet Bolt?"
+behavior = "answer"
+key_points = ["Leaf 21,000-26,000 GEL, Bolt 36,000-43,000 GEL", "Leaf battery degrades in Tbilisi heat (no active cooling)", "depends on fast-charging needs and driving"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "Used Leaf 40 kWh: 21,000-26,000 GEL; used Bolt 2020-2021: 36,000-43,000 GEL."
+values = ["21000", "36000", "43000"]
+sources = ["ev-en-0045"]
+[[case.facts]]
+statement = "The Leaf 40 kWh battery lost 2.5-3.5% of state of health per year in Tbilisi."
+values = ["2.5", "3.5"]
+sources = ["ev-en-0038"]
+
+[[case]]
+id = "recommendation-004"
+split = "dev"
+category = "recommendation"
+language = "en"
+topic = "ev"
+question = "Is buying a China-market electric car a good idea in Georgia?"
+behavior = "answer"
+key_points = ["GB/T inlet vs CCS2 chargers", "adapters cost 1,400-2,000 GEL and do not work with every car", "test a DC session before buying"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "Most Georgian fast chargers use CCS2 while many China-market cars have a GB/T inlet; adapters cost 1,400-2,000 GEL."
+values = ["GB/T", "CCS2", "1400", "2000"]
+sources = ["ev-en-0007"]
+[[case.facts]]
+statement = "38% of electric cars imported in 2025 came from China."
+values = ["38%"]
+sources = ["ev-en-0004", "ev-en-0051"]
+
+[[case]]
+id = "recommendation-005"
+split = "dev"
+category = "recommendation"
+language = "en"
+topic = "ev"
+question = "Should I buy a new BYD from the official dealer or a used imported electric car?"
+behavior = "answer"
+key_points = ["new BYD Dolphin 62,500 GEL with 8-year/160,000 km battery warranty", "grey imports have no manufacturer warranty", "about 60% of used imports are repaired auction cars"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "The BYD Dolphin costs 62,500 GEL with an 8-year or 160,000 km battery warranty."
+values = ["62500", "160000"]
+sources = ["ev-en-0046"]
+[[case.facts]]
+statement = "Most privately imported electric cars have no manufacturer warranty in Georgia."
+values = ["no manufacturer warranty"]
+sources = ["ev-en-0071"]
+[[case.facts]]
+statement = "About 60% of imported used electric cars come from US insurance auctions."
+values = ["60%"]
+sources = ["ev-en-0073", "ev-en-0004"]
+
+[[case]]
+id = "recommendation-006"
+split = "dev"
+category = "recommendation"
+language = "en"
+topic = "ev"
+question = "Should I import an electric car before the end of 2026?"
+behavior = "answer"
+key_points = ["VAT exemption covers imports declared until 31 December 2026", "no extension has been adopted", "afterwards 18% VAT would apply"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "Imports declared until 31 December 2026 are exempt from VAT; no extension has been adopted."
+values = ["31 December 2026"]
+sources = ["ev-en-0001", "ev-en-0011"]
+[[case.facts]]
+statement = "Outside the exemption the standard VAT rate of 18% applies."
+values = ["18%"]
+sources = ["ev-en-0001"]
+
+[[case]]
+id = "recommendation-007"
+split = "holdout"
+category = "recommendation"
+language = "en"
+topic = "ev"
+question = "Is an electric car practical for regular winter trips from Tbilisi to Gudauri?"
+behavior = "answer"
+key_points = ["35-40% more energy on the winter climb", "Gudauri has a 60 kW fast charger, the only one above Pasanauri", "charge to 100% and precondition"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "At -10 degrees cars used 35 to 40% more energy on the climb to Gudauri."
+values = ["35", "40%"]
+sources = ["ev-en-0039"]
+[[case.facts]]
+statement = "Gudauri has a 60 kW DC fast charger operated by eRoute."
+values = ["60 kW"]
+sources = ["ev-en-0017"]
+
+[[case]]
+id = "recommendation-008"
+split = "dev"
+category = "recommendation"
+language = "en"
+topic = "tax"
+question = "I am a freelance software developer with clients abroad. Should I register as an individual entrepreneur with small business status?"
+behavior = "answer"
+key_points = ["1% of turnover", "foreign income counts towards the 500,000 GEL limit", "software development is not consulting", "check VAT before passing 100,000 GEL", "4% pension contribution if in the scheme"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "Developers pay 1% of turnover while it stays under 500,000 GEL; foreign income counts towards the limit."
+values = ["1%", "500000"]
+sources = ["tax-en-0011"]
+[[case.facts]]
+statement = "Software development is not considered consulting."
+values = ["Software development"]
+sources = ["tax-en-0013"]
+[[case.facts]]
+statement = "Self-employed members of the pension scheme contribute 4% of income."
+values = ["4%"]
+sources = ["tax-en-0015", "tax-en-0011"]
+
+[[case]]
+id = "recommendation-009"
+split = "holdout"
+category = "recommendation"
+language = "en"
+topic = "tax"
+question = "I work as a management consultant. Is small business status a good option for me?"
+behavior = "answer"
+key_points = ["consulting is excluded from small business status", "status can be cancelled and tax recalculated if the activity is consulting"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "Consulting services are excluded from small business status."
+values = ["consulting"]
+sources = ["tax-en-0001", "tax-en-0013"]
+
+[[case]]
+id = "recommendation-010"
+split = "dev"
+category = "recommendation"
+language = "en"
+topic = "tax"
+question = "My turnover will be about 540,000 GEL this year. What should I do about my small business status?"
+behavior = "answer"
+key_points = ["3% on the part above 500,000 GEL", "status is lost only after two consecutive years over the limit", "VAT registration once taxable supplies pass 100,000 GEL"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "Turnover above 500,000 GEL is taxed at 3%; exceeding the limit two years in a row cancels the status."
+values = ["500000", "3%"]
+sources = ["tax-en-0001", "tax-en-0010"]
+[[case.facts]]
+statement = "VAT registration is required once taxable supplies exceed 100,000 GEL in 12 months."
+values = ["100000"]
+sources = ["tax-en-0006", "tax-en-0017"]

@@ -1,0 +1,211 @@
+# Questions asked in Georgian, answered from Georgian (and, where needed, English) sources.
+
+[[case]]
+id = "georgian-001"
+split = "dev"
+category = "georgian"
+language = "ka"
+topic = "ev"
+question = "რამდენია ელექტრომობილის განბაჟების მომსახურების საფასური?"
+behavior = "answer"
+key_points = ["150 ლარი თითო ავტომობილზე"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "The customs clearance fee is 150 GEL per vehicle."
+values = ["150"]
+sources = ["ev-ka-0001"]
+
+[[case]]
+id = "georgian-002"
+split = "dev"
+category = "georgian"
+language = "ka"
+topic = "ev"
+question = "რამდენ აქციზს იხდიან ჰიბრიდები 2026 წლიდან?"
+behavior = "answer"
+key_points = ["სტანდარტული აქციზის 70%", "2025 წლის ბოლომდე 40%", "ელექტრომობილები გათავისუფლებულია"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "From 2026 hybrids pay 70% of the standard excise."
+values = ["70%"]
+sources = ["ev-ka-0003"]
+
+[[case]]
+id = "georgian-003"
+split = "dev"
+category = "georgian"
+language = "ka"
+topic = "ev"
+question = "რამდენი სწრაფი DC დამტენი წერტილია საქართველოში?"
+behavior = "answer"
+key_points = ["146 სწრაფი DC წერტილი (2026 წლის ივნისი)"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "There are 146 DC fast charging points (June 2026)."
+values = ["146"]
+sources = ["ev-ka-0005"]
+
+[[case]]
+id = "georgian-004"
+split = "dev"
+category = "georgian"
+language = "ka"
+topic = "ev"
+question = "რა ღირდა პრემიუმ ბენზინი 2026 წლის აგვისტოში?"
+behavior = "answer"
+key_points = ["საშუალოდ 3.05 ლარი ლიტრზე"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "Premium petrol averaged 3.05 GEL per litre in August 2026."
+values = ["3.05"]
+sources = ["ev-ka-0014"]
+
+[[case]]
+id = "georgian-005"
+split = "holdout"
+category = "georgian"
+language = "ka"
+topic = "ev"
+question = "რამდენით მცირდება ელექტრომობილის სავალი მანძილი ზამთარში?"
+behavior = "answer"
+key_points = ["0 გრადუსთან 15-25%", "თბური ტუმბოთი 10-15%"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "Range drops 15-25% near 0 degrees; 10-15% with a heat pump."
+values = ["15", "25%"]
+sources = ["ev-ka-0015"]
+
+[[case]]
+id = "georgian-006"
+split = "dev"
+category = "georgian"
+language = "ka"
+topic = "ev"
+question = "რა ღირს ახალი BYD Atto 3 ოფიციალურ დილერთან?"
+behavior = "answer"
+key_points = ["86 900 ლარი", "ბატარეის გარანტია 8 წელი ან 160 000 კმ"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "The BYD Atto 3 costs 86,900 GEL."
+values = ["86900"]
+sources = ["ev-ka-0020"]
+
+[[case]]
+id = "georgian-007"
+split = "holdout"
+category = "georgian"
+language = "ka"
+topic = "ev"
+question = "რამდენი ელექტრომობილი იყო რეგისტრირებული საქართველოში 2025 წლის ბოლოს?"
+behavior = "answer"
+key_points = ["24 100"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "24,100 battery electric cars were registered at the end of 2025."
+values = ["24100"]
+sources = ["ev-ka-0021"]
+
+[[case]]
+id = "georgian-008"
+split = "holdout"
+category = "georgian"
+language = "ka"
+topic = "ev"
+question = "რამდენ ენერგიას ხარჯავს Nissan Leaf 40 kWh 100 კილომეტრზე?"
+behavior = "answer"
+key_points = ["16,8 კვტ.სთ 100 კმ-ზე"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "A Leaf 40 kWh uses 16.8 kWh per 100 km."
+values = ["16.8"]
+sources = ["ev-ka-0025"]
+
+[[case]]
+id = "georgian-009"
+split = "dev"
+category = "georgian"
+language = "ka"
+topic = "ev"
+question = "რა ღირს Nissan Leaf 40 kWh-ის ახალი ან აღდგენილი ბატარეა?"
+behavior = "answer"
+key_points = ["ახალი 15 500-18 000 ლარი", "აღდგენილი 8 000-10 500 ლარი"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "A new Leaf 40 kWh pack costs 15,500-18,000 GEL; refurbished 8,000-10,500 GEL."
+values = ["15500", "18000", "8000", "10500"]
+sources = ["ev-ka-0027"]
+
+[[case]]
+id = "georgian-010"
+split = "dev"
+category = "georgian"
+language = "ka"
+topic = "ev"
+question = "იხდის თუ არა ელექტრომობილის მფლობელი ქონების გადასახადს?"
+behavior = "answer"
+key_points = ["მხოლოდ თუ ოჯახის წლიური შემოსავალი 40 000 ლარს აღემატება", "ელექტრომობილებისთვის შეღავათი არ არსებობს"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "Property tax applies only above 40,000 GEL family income; EVs are not exempt."
+values = ["40000"]
+sources = ["ev-ka-0028"]
+
+[[case]]
+id = "georgian-011"
+split = "holdout"
+category = "georgian"
+language = "ka"
+topic = "tax"
+question = "რა ბრუნვის შემდეგ უნდა დარეგისტრირდეს მეწარმე დღგ-ის გადამხდელად?"
+behavior = "answer"
+key_points = ["100 000 ლარი ნებისმიერ 12 თვეში", "მცირე ბიზნესის სტატუსი არ ათავისუფლებს"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "VAT registration is required above 100,000 GEL in any 12 months; the rate is 18%."
+values = ["100000", "18%"]
+sources = ["tax-ka-0004"]
+
+[[case]]
+id = "georgian-012"
+split = "dev"
+category = "georgian"
+language = "ka"
+topic = "tax"
+question = "ვის შეუძლია მიკრო ბიზნესის სტატუსის მიღება?"
+behavior = "answer"
+key_points = ["წლიური შემოსავალი 30 000 ლარამდე", "დაქირავებული პირის გარეშე"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "Micro business status: income up to 30,000 GEL and no employees."
+values = ["30000"]
+sources = ["tax-ka-0005"]
+
+[[case]]
+id = "georgian-013"
+split = "dev"
+category = "georgian"
+language = "ka"
+topic = "tax"
+question = "რა ჯარიმა ეკისრება მეწარმეს, თუ ნაღდი ფულით სალარო აპარატის გარეშე ვაჭრობს?"
+behavior = "answer"
+key_points = ["პირველი დარღვევისთვის 500 ლარი"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "The first violation is fined 500 GEL."
+values = ["500"]
+sources = ["tax-ka-0007"]
+
+[[case]]
+id = "georgian-014"
+split = "dev"
+category = "georgian"
+language = "ka"
+topic = "tax"
+question = "რა საპენსიო შენატანს იხდის თვითდასაქმებული ინდივიდუალური მეწარმე?"
+behavior = "answer"
+key_points = ["შემოსავლის 4%", "2019 წელს 40+ ასაკის პირებს შეეძლოთ უარის თქმა"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "Self-employed participants contribute 4% of income."
+values = ["4%"]
+sources = ["tax-ka-0011"]
