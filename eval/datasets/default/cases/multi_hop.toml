@@ -1,0 +1,195 @@
+# Multi-hop: the answer combines facts from different documents.
+
+[[case]]
+id = "multi_hop-001"
+split = "dev"
+category = "multi_hop"
+language = "en"
+topic = "ev"
+question = "Which charging network has the most public charging points, and what does it charge for DC fast charging?"
+behavior = "answer"
+key_points = ["VoltLine, 190 points (June 2026)", "0.85 GEL per kWh for DC fast charging"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "VoltLine operates 190 of the 512 public charging points."
+values = ["VoltLine", "190"]
+sources = ["ev-en-0013"]
+[[case.facts]]
+statement = "VoltLine DC fast charging costs 0.85 GEL per kWh."
+values = ["0.85"]
+sources = ["ev-en-0086", "ev-en-0024"]
+
+[[case]]
+id = "multi_hop-002"
+split = "holdout"
+category = "multi_hop"
+language = "en"
+topic = "ev"
+question = "Which company runs the fast charger in Gudauri, and what is its DC price per kWh?"
+behavior = "answer"
+key_points = ["eRoute", "0.89 GEL per kWh"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "eRoute operates the Gudauri fast charger."
+values = ["eRoute"]
+sources = ["ev-en-0017", "ev-en-0098"]
+[[case.facts]]
+statement = "eRoute DC fast charging costs 0.89 GEL per kWh."
+values = ["0.89"]
+sources = ["ev-en-0098"]
+
+[[case]]
+id = "multi_hop-003"
+split = "holdout"
+category = "multi_hop"
+language = "en"
+topic = "ev"
+question = "What would a Nissan Leaf 40 kWh owner pay per 100 km on the network with the cheapest public AC charging?"
+behavior = "answer"
+key_points = ["Mtsvane Charge has the cheapest AC price, 0.49 GEL/kWh", "Leaf uses 16.8 kWh per 100 km", "about 8.23 GEL per 100 km"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document", "calculate"]
+[case.calculation]
+expression = "16.8 * 0.49"
+result = 8.232
+sources = ["ev-en-0058", "ev-en-0028"]
+[[case.facts]]
+statement = "Mtsvane Charge AC charging costs 0.49 GEL per kWh."
+values = ["0.49"]
+sources = ["ev-en-0028"]
+[[case.facts]]
+statement = "The Leaf 40 kWh uses 16.8 kWh per 100 km."
+values = ["16.8"]
+sources = ["ev-en-0058"]
+
+[[case]]
+id = "multi_hop-004"
+split = "dev"
+category = "multi_hop"
+language = "en"
+topic = "ev"
+question = "If a Nissan Leaf 40 kWh battery is failing, how do the repair options compare in price, and what should be checked first?"
+behavior = "answer"
+key_points = ["new pack 15,500-18,000 GEL", "refurbished 8,000-10,500 GEL", "module repair 2,500-4,500 GEL", "diagnostic 60-120 GEL first"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "Leaf 40 kWh: new pack 15,500-18,000 GEL, refurbished 8,000-10,500 GEL, module repair 2,500-4,500 GEL."
+values = ["15500", "8000", "2500"]
+sources = ["ev-en-0060"]
+[[case.facts]]
+statement = "A battery diagnostic costs 60 to 120 GEL."
+values = ["60", "120"]
+sources = ["ev-en-0072"]
+
+[[case]]
+id = "multi_hop-005"
+split = "dev"
+category = "multi_hop"
+language = "en"
+topic = "ev"
+question = "Do cars sold by the official BYD dealer use the same fast-charging standard as most chargers in Georgia?"
+behavior = "answer"
+key_points = ["BYD Tbilisi cars have a CCS2 inlet", "most Georgian fast chargers use CCS2"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "BYD Tbilisi sells European-specification cars with a CCS2 inlet."
+values = ["CCS2"]
+sources = ["ev-en-0046"]
+[[case.facts]]
+statement = "Most fast chargers in Georgia use the CCS2 standard."
+values = ["CCS2"]
+sources = ["ev-en-0007"]
+
+[[case]]
+id = "multi_hop-006"
+split = "dev"
+category = "multi_hop"
+language = "en"
+topic = "ev"
+question = "What does a China-market Volkswagen ID.4 cost in 2026, and what extra might its owner need for fast charging in Georgia?"
+behavior = "answer"
+key_points = ["58,000-66,000 GEL", "GB/T to CCS2 adapter 1,400-2,000 GEL, not guaranteed to work"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "A China-market VW ID.4 2021-2022 typically costs 58,000-66,000 GEL."
+values = ["58000", "66000"]
+sources = ["ev-en-0112"]
+[[case.facts]]
+statement = "GB/T to CCS2 adapters cost 1,400 to 2,000 GEL."
+values = ["1400", "2000"]
+sources = ["ev-en-0007"]
+
+[[case]]
+id = "multi_hop-007"
+split = "dev"
+category = "multi_hop"
+language = "en"
+topic = "tax"
+question = "A freelancer with small business status earns 9,000 GEL a month from foreign clients. Will their annual turnover stay under the limit, and what must they watch regarding VAT?"
+behavior = "answer"
+key_points = ["108,000 GEL a year, under 500,000 GEL", "foreign income counts towards the limit", "VAT rules for foreign clients need checking around 100,000 GEL"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document", "calculate"]
+[case.calculation]
+expression = "9000 * 12"
+result = 108000
+sources = ["tax-en-0011"]
+[[case.facts]]
+statement = "Foreign income counts towards the 500,000 GEL limit."
+values = ["500000"]
+sources = ["tax-en-0011"]
+[[case.facts]]
+statement = "Check VAT before passing 100,000 GEL in 12 months."
+values = ["100000"]
+sources = ["tax-en-0011", "tax-en-0006"]
+
+[[case]]
+id = "multi_hop-008"
+split = "dev"
+category = "multi_hop"
+language = "en"
+topic = "tax"
+question = "If an individual entrepreneur with small business status hires two employees, can they still switch to micro business status, and what must they withhold from salaries?"
+behavior = "answer"
+key_points = ["micro business status requires no employees", "employers withhold 20% income tax", "pension 2% + 2% + 2%"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "Micro business status is not available to people who employ staff."
+values = ["do not employ any staff"]
+sources = ["tax-en-0007"]
+[[case.facts]]
+statement = "The employer withholds 20% personal income tax from salaries."
+values = ["20%"]
+sources = ["tax-en-0016"]
+
+[[case]]
+id = "multi_hop-009"
+split = "holdout"
+category = "multi_hop"
+language = "en"
+topic = "ev"
+question = "What share of passenger cars imported in the first half of 2026 were battery electric, and how does that compare with hybrids?"
+behavior = "answer"
+key_points = ["battery electric 11.8%", "hybrids 32.0%"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document"]
+[[case.facts]]
+statement = "In H1 2026 battery electric cars were 11.8% of imports and hybrids 32.0%."
+values = ["11.8", "32.0"]
+sources = ["ev-en-0124"]
+
+[[case]]
+id = "multi_hop-010"
+split = "dev"
+category = "multi_hop"
+language = "en"
+topic = "ev"
+question = "Roughly how many of Georgia's public charging points are in Tbilisi?"
+behavior = "answer"
+key_points = ["58% of 512 points", "about 297 points"]
+expected_tools = ["search_corpus", "get_source_metadata", "fetch_document", "calculate"]
+[case.calculation]
+expression = "512 * 58 / 100"
+result = 296.96
+sources = ["ev-en-0013"]
+[[case.facts]]
+statement = "Tbilisi hosts 58% of the 512 public charging points."
+values = ["58%", "512"]
+sources = ["ev-en-0013"]

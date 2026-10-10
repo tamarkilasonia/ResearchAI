@@ -1,0 +1,6 @@
+{
+  "dataset": "default",
+  "version": "1.0.0",
+  "holdout_cases": 42,
+  "sha256": "34092c9e5ffd1ccf267e562b2eb268b302d95a29eb77d21ce5d4e8df6234ac4d"
+}
