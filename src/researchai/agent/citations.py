@@ -53,7 +53,7 @@ from researchai.agent.prompts import ENTAILMENT_SYSTEM, entailment_user
 from researchai.agent.verification import fill_empty_sections
 from researchai.mcp_client.client import ToolCallError
 from researchai.safety.documents import instruction_spans, overlaps
-from researchai.textutil import DOMAIN_COMMON, keyword_terms
+from researchai.textutil import DOMAIN_COMMON, text_terms
 from researchai.tools.errors import ErrorCode
 from researchai.tools.schemas import DocumentResponse
 
@@ -124,11 +124,11 @@ def is_verbatim(sentence: ReportSentence) -> bool:
 def lexical_support(text: str, spans: Sequence[str]) -> SupportLevel | None:
     """Coverage of the sentence's content words by the cited spans (None: not supported)."""
     terms = {
-        t for t in keyword_terms(text) if t not in DOMAIN_COMMON and not any(c.isdigit() for c in t)
+        t for t in text_terms(text) if t not in DOMAIN_COMMON and not any(c.isdigit() for c in t)
     }
     if not terms:
         return "supported"
-    span_terms = set(keyword_terms(" ".join(spans)))
+    span_terms = text_terms(" ".join(spans))
     coverage = len(terms & span_terms) / len(terms)
     if coverage >= SUPPORTED_COVERAGE:
         return "supported"
