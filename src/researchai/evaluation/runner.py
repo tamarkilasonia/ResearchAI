@@ -51,6 +51,7 @@ class RunConfig(_Model):
     mode: Mode
     model: str | None
     embedder: str
+    search_mode: str
     corpus_version: str
     manifest_sha256: str
     git_commit: str | None

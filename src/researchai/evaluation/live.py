@@ -119,6 +119,7 @@ async def evaluate(
         mode=mode,
         model=llm.model if llm is not None else None,
         embedder=backend.embedder.name,
+        search_mode=settings.agent_search_mode,
         corpus_version=corpus.version,
         manifest_sha256=backend.manifest,
         git_commit=git_commit,
