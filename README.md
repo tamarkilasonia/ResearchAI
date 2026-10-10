@@ -6,7 +6,7 @@ tools, detects conflicting and outdated sources, and writes a report in which
 every factual claim cites a document and a supporting span. When evidence is
 missing it abstains instead of guessing.
 
-Status: under construction (phase 6 of 13: citation verification).
+Status: under construction (phase 7 of 13: API and persistence).
 
 ## Development
 
@@ -139,6 +139,28 @@ removed and flagged sentences with reasons.
 uv run python -m researchai.mcp_server &                    # tools on :8765
 uv run python -m researchai.agent "How many public charging points are there?"
 LLM_PROVIDER=ollama uv run python -m researchai.agent --json "..."  # full trace
+```
+
+## HTTP API
+
+| Endpoint | What it does |
+|---|---|
+| `POST /research` | Store a run and start it in the background: `202` with the run id and a `Location` header. `?wait=true` blocks up to `API_WAIT_SECONDS` and returns the finished run. |
+| `GET /research/{id}` | Status (`queued`, `running`, `completed`, `failed`), the full result (report, citations, conflicts, citation checks, trace, tool calls, token usage) and the report as Markdown. |
+| `GET /evaluations` | Evaluation runs, newest first. |
+| `POST /evaluations/run` | Start an evaluation run. Answers `503 EVALUATION_UNAVAILABLE` until the evaluation runner exists (phase 10). |
+| `GET /health` | Database and MCP tool server status; `503` with `"degraded"` if one is down. |
+
+- Runs execute under `API_MAX_CONCURRENT_RUNS` (a local LLM is the bottleneck); each
+  run gets its own MCP session, so concurrent runs never mix their tool logs.
+- The whole result is stored as JSONB in PostgreSQL: the audit trail of every run.
+  Runs left unfinished by a crash are marked failed on the next startup.
+- Every error has one shape, `{"error": {"code", "message", "request_id"}}`, and
+  never contains a stack trace; every response carries `X-Request-ID`.
+
+```bash
+curl -s -X POST 'localhost:8100/research?wait=true' -H 'content-type: application/json' \
+  -d '{"question": "How many public charging points are there in Georgia?"}' | jq .report_markdown
 ```
 
 For Ollama, start the server with a context window at least `LLM_CONTEXT_TOKENS`
