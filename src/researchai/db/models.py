@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from typing import Any
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Computed, DateTime, ForeignKey, Index, Integer, String, Text, func
-from sqlalchemy.dialects.postgresql import TSVECTOR
+from sqlalchemy import Computed, DateTime, Float, ForeignKey, Index, Integer, String, Text, func
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -71,3 +72,38 @@ class CorpusBuildRow(Base):
     document_count: Mapped[int] = mapped_column(Integer)
     chunk_count: Mapped[int] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ResearchRunRow(Base):
+    """One research request and, once finished, its full result (the audit trail)."""
+
+    __tablename__ = "research_runs"
+    __table_args__ = (Index("ix_research_runs_created_at", "created_at"),)
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    question: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(16), index=True)  # queued|running|completed|failed
+    outcome: Mapped[str | None] = mapped_column(String(16))  # answered|abstained|rejected|failed
+    mode: Mapped[str | None] = mapped_column(String(16))  # offline|llm
+    error: Mapped[str | None] = mapped_column(Text)
+    total_ms: Mapped[float | None] = mapped_column(Float)
+    result: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class EvaluationRunRow(Base):
+    """One evaluation run over the labelled dataset (filled in by the eval phases)."""
+
+    __tablename__ = "evaluation_runs"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    dataset: Mapped[str] = mapped_column(String(64))
+    split: Mapped[str] = mapped_column(String(16))
+    mode: Mapped[str] = mapped_column(String(16))
+    status: Mapped[str] = mapped_column(String(16), index=True)
+    error: Mapped[str | None] = mapped_column(Text)
+    summary: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
