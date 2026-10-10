@@ -7,7 +7,11 @@ Rules (always)
     new/used, petrol/diesel) and sufficiently overlapping subjects. Only
     *directly* comparable facts are related (no transitive chaining). The newest
     fact is the reference; older differing values are ``outdated`` (superseded)
-    and contemporaneous differing values are a ``contradiction``. Each reference
+    and contemporaneous differing values are a ``contradiction``. A low-reliability
+    source (dealer, blog, forum) never supersedes a reliable one: newer is not
+    enough, so that disagreement is a ``contradiction`` (both sides shown, nothing
+    dropped). This also keeps a planted newer value from erasing an official
+    figure. Each reference
     yields at most one record of each kind, so a time series is one record, not
     pairwise noise. Forecasts (values dated after their source was published,
     such as "450 chargers by 2030") are never treated as current values.
@@ -16,7 +20,7 @@ LLM (when available)
     Disagreements without numbers ("VAT applies" vs "exempt from VAT") are
     invisible to the rules. The model may flag passage pairs with verbatim
     quotes; quotes must anchor in the passages and the documents must differ.
-    The kind is still decided by rules, from publication dates.
+    The kind is still decided by rules, from publication dates and reliability.
 """
 
 from __future__ import annotations
@@ -26,6 +30,7 @@ from collections.abc import Sequence
 from pydantic import BaseModel, ConfigDict, Field
 
 from researchai.agent.anchoring import anchor_quote
+from researchai.agent.assess import LOW_RELIABILITY
 from researchai.agent.budget import BudgetExceeded, RunBudget
 from researchai.agent.llm import LLMClient, LLMError, structured_call
 from researchai.agent.models import Claim, Conflict, ConflictKind, Evidence, NumericFact
@@ -109,6 +114,11 @@ def _is_forecast(claim: Claim, fact: NumericFact) -> bool:
     return fact.as_of_year > claim.published.year
 
 
+def can_supersede(newer_reliability: float, older_reliability: float) -> bool:
+    """Only a reliable source, or one no less reliable, may replace an older value."""
+    return newer_reliability >= LOW_RELIABILITY or newer_reliability >= older_reliability
+
+
 def rule_conflicts(claims: Sequence[Claim]) -> list[Conflict]:
     """Conflicts between *directly* comparable facts (no transitive chaining).
 
@@ -147,13 +157,31 @@ def rule_conflicts(claims: Sequence[Claim]) -> list[Conflict]:
             continue
         handled.add(i)
         handled.update(partners)
-        disagree = [j for j in partners if not consistent(facts[j][1], ref_fact)]
-        contemporaneous = [j for j in disagree if _same_period(facts[j][1], ref_fact)]
-        older = [j for j in disagree if j not in contemporaneous]
+        agree = [j for j in partners if consistent(facts[j][1], ref_fact)]
+        disagree = [j for j in partners if j not in agree]
+        # The reference or an agreeing fact may supersede an older value, if it is
+        # newer and reliable enough; otherwise the disagreement stays visible.
+        backers = {
+            j: [
+                k
+                for k in (i, *agree)
+                if facts[k][1].period > facts[j][1].period
+                and can_supersede(facts[k][0].reliability, facts[j][0].reliability)
+            ]
+            for j in disagree
+            if not _same_period(facts[j][1], ref_fact)
+        }
+        older = [j for j in disagree if backers.get(j)]
+        contemporaneous = [j for j in disagree if j not in older]
         if contemporaneous:
             conflicts.append(_record("contradiction", [i], contemporaneous, facts, ref_fact.unit))
         if older:
-            conflicts.append(_record("outdated", [i], older, facts, ref_fact.unit))
+            # The most reliable backer comes first: templates quote current[0].
+            current = sorted(
+                {k for j in older for k in backers[j]},
+                key=lambda k: (-facts[k][0].reliability, k != i, facts[k][0].id),
+            )
+            conflicts.append(_record("outdated", current, older, facts, ref_fact.unit))
     conflicts.sort(key=lambda c: (c.kind != "contradiction", c.summary))
     return [
         c.model_copy(update={"id": f"X{n}"}) for n, c in enumerate(conflicts[:MAX_CONFLICTS], 1)
@@ -272,7 +300,12 @@ async def llm_conflicts(
         next_claim += 2
         new_claims += [claim_a, claim_b]
         newer, older = sorted((claim_a, claim_b), key=lambda c: (c.published, c.reliability))[::-1]
-        kind: ConflictKind = "outdated" if newer.published != older.published else "contradiction"
+        kind: ConflictKind = (
+            "outdated"
+            if newer.published != older.published
+            and can_supersede(newer.reliability, older.reliability)
+            else "contradiction"
+        )
         new_conflicts.append(
             Conflict(
                 id=f"X{len(existing) + len(new_conflicts) + 1}",
