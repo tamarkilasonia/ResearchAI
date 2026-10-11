@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help install lint format typecheck test test-integration cov check db up down corpus
+.PHONY: help install lint format typecheck test test-integration cov mutation check db up down corpus
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  %-18s %s\n", $$1, $$2}'
@@ -15,7 +15,10 @@ format: ## Apply ruff formatting and safe fixes
 	uv run ruff format src tests scripts
 	uv run ruff check --fix src tests scripts
 
-typecheck: ## mypy --strict
+typemutation: ## Plant known bugs; fail if the tests miss one
+	uv run python -m scripts.mutation_check
+
+check: ## mypy --strict
 	uv run mypy
 
 test: ## Unit tests (random order, no network)
