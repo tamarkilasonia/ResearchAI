@@ -233,6 +233,51 @@ uv run python -m researchai.evaluation stats
 The dataset, the traps and the agent were written by the same developer; see
 the limitations in [eval/README.md](eval/README.md).
 
+## Evaluation runs
+
+Deterministic scorers re-check every final report against the corpus files (not
+the agent's own verifier): expected behaviour, reference facts, grounding,
+citation precision and recall, hallucination, tools and arguments, planted
+conflicts and outdated values, abstention, refusals, injections, prompt leaks,
+latency and tokens. Completeness, relevance and report quality are left to an
+LLM judge calibrated against human labels. Runs are crash-safe (results are
+saved as they finish; `--resume` continues an interrupted run). Details and
+metric definitions: [eval/README.md](eval/README.md).
+
+```bash
+uv run python -m researchai.evaluation run --split dev --mode offline
+LLM_PROVIDER=ollama EMBEDDING_PROVIDER=ollama \
+  uv run python -m researchai.evaluation run --split dev --mode llm
+```
+
+CI runs the offline evaluation of the dev split on every push and fails if a
+report leaks a system prompt, a harmless question is refused, a claim is
+unsupported by every retrieved passage, or an injected instruction shows up in
+a report.
+
+**Search mode, decided on the dev split** (77 cases with reference facts, bge-m3;
+share of reference facts whose source document is in the top k):
+
+| Mode | recall@1 | recall@3 | recall@5 | MRR |
+|---|---|---|---|---|
+| vector | **0.62** | **0.87** | **0.89** | **0.82** |
+| hybrid (RRF) | 0.51 | 0.78 | 0.89 | 0.73 |
+| keyword | 0.40 | 0.61 | 0.69 | 0.59 |
+
+Per case, vector beat hybrid on recall@3 in 14 cases and lost in 4 (sign test
+p = 0.03), so the agent searches in vector mode with a real embedding model
+(`SEARCH_MODE=auto`). The hash embedder used offline in CI has no semantic
+signal, so hybrid stays the mode there.
+
+**Offline baseline, dev split** (93 cases; rules and templates, no model; bge-m3):
+38% of cases pass every check; behaviour is right in 91%; 44% of reference facts
+are stated; 0 of 314 claims are unsupported (the offline writer only quotes);
+75% of reference sources are retrieved, 53% cited. It cannot compute (0 of 12
+calculations), refuses only the 4 of 8 harmful requests its rules recognise,
+abstains on 4 of 8 unanswerable questions and reports 2 of 6 planted
+contradictions. The LLM-mode run of the dev split and the holdout runs follow in
+the next phases; the holdout is evaluated once, at the end.
+
 ## HTTP API
 
 | Endpoint | What it does |

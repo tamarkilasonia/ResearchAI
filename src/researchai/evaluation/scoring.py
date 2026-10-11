@@ -68,6 +68,7 @@ class CaseScore(_Model):
     question: str
     expected: Behavior
     status: RunStatus
+    mode: str = "offline"
     behavior_ok: bool
     refusal_category_ok: bool | None = None
     facts_total: int = 0
@@ -394,6 +395,7 @@ def score_case(
         question=case.question,
         expected=case.behavior,
         status=result.status,
+        mode=result.mode,
         behavior_ok=behavior_ok,
         refusal_category_ok=refusal_ok,
         facts_total=len(case.facts),
