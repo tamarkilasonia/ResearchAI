@@ -62,6 +62,30 @@ def _groups(title: str, groups: dict[str, GroupMetrics]) -> list[str]:
     return [*lines, ""]
 
 
+def _judge(report: RunReport) -> list[str]:
+    judge = report.judge
+    assert judge is not None  # noqa: S101 - checked by the caller
+    lines = [f"## LLM judge ({judge.model})", ""]
+    if judge.calibrated_on:
+        lines.append(
+            f"Calibrated on {judge.calibrated_on} human-labelled items; a criterion with "
+            "Cohen's kappa below 0.4 is unreliable and its score should not be trusted."
+        )
+    else:
+        lines.append("Not calibrated yet: no human labels, so these scores carry no weight.")
+    lines += [
+        "",
+        "| Criterion | Mean (0-2) | Reports | Cohen's kappa | Weighted kappa | Reliable |",
+        "|---|---|---|---|---|---|",
+    ]
+    for name, c in judge.criteria.items():
+        kappa = "n/a" if c.kappa is None else f"{c.kappa:.2f}"
+        weighted = "n/a" if c.weighted_kappa is None else f"{c.weighted_kappa:.2f}"
+        reliable = {None: "not calibrated", True: "yes", False: "no"}[c.reliable]
+        lines.append(f"| {name} | {c.mean:.2f} | {c.n} | {kappa} | {weighted} | {reliable} |")
+    return [*lines, ""]
+
+
 def render_report(report: RunReport) -> str:
     c, m = report.config, report.metrics
     duration = (c.finished_at - c.started_at).total_seconds()
@@ -100,6 +124,8 @@ def render_report(report: RunReport) -> str:
         "At the configured token price |",
         "",
     ]
+    if report.judge is not None:
+        lines += _judge(report)
     lines += _groups("category", m.by_category)
     lines += _groups("language", m.by_language)
 
