@@ -1,8 +1,10 @@
-"""Evaluation runs: storage now, the runner arrives with the evaluation phases.
+"""Evaluation runs started over the API, and their stored summaries.
 
-Until a runner is installed (``AppServices.evaluation_runner is None``),
-``POST /evaluations/run`` answers 503 ``EVALUATION_UNAVAILABLE`` instead of
-pretending to evaluate anything.
+The runner (:func:`dataset_runner`) evaluates a dataset split against the
+running MCP tool server and stores the metrics; the full run (results and
+report) is written under ``EVAL_OUTPUT_DIR``. Without a runner
+(``AppServices.evaluation_runner is None``) ``POST /evaluations/run`` answers
+503 ``EVALUATION_UNAVAILABLE`` instead of pretending to evaluate anything.
 """
 
 from __future__ import annotations
@@ -16,7 +18,12 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from researchai.config import Settings
+from researchai.corpus.loader import load_corpus
 from researchai.db.models import EvaluationRunRow
+from researchai.evaluation.dataset import load_dataset, validate
+from researchai.evaluation.live import evaluate
+from researchai.evaluation.runner import EvaluationError
 
 Split = Literal["dev", "holdout"]
 Mode = Literal["offline", "llm"]
@@ -110,3 +117,32 @@ class EvaluationStore:
             row = await session.get(EvaluationRunRow, run_id, populate_existing=True)
         assert row is not None  # noqa: S101 - created by start() in this process
         return _record(row)
+
+
+def dataset_runner(settings: Settings) -> EvaluationRunner:
+    """Evaluate the requested dataset split through the MCP server at ``MCP_SERVER_URL``."""
+
+    async def run(request: EvaluationRequest) -> dict[str, Any]:
+        dataset = load_dataset(request.dataset, settings.eval_dir)
+        corpus = load_corpus(settings.corpus_dir)
+        problems = validate(dataset, corpus)
+        if problems:
+            raise EvaluationError(f"dataset {request.dataset} is invalid: {problems[:3]}")
+        report, path = await evaluate(
+            settings,
+            dataset,
+            corpus,
+            split=request.split,
+            mode=request.mode,
+            mcp_url=settings.mcp_server_url,
+        )
+        return {
+            "run_id": report.config.run_id,
+            "path": str(path),
+            "cases": report.metrics.cases,
+            "metrics": report.metrics.model_dump(
+                mode="json", exclude={"by_category", "by_language"}
+            ),
+        }
+
+    return run
