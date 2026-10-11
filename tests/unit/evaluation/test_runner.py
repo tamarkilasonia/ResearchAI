@@ -103,7 +103,7 @@ def test_aggregate_counts_each_metric_over_its_own_cases() -> None:
                      TrapOutcome(trap="TR24", kind="injection", retrieved=False,
                                  detected=False, adopted=True)]),
         score(case_id="outdated-001", category=Category.OUTDATED, outdated_as_current=["0.248"],
-              prompt_leak=True, passed=False),
+              prompt_leak=True, passed=False, llm_fallbacks=["planner"]),
     ]  # fmt: skip
     m = aggregate(scores, cost_per_1k_tokens=0.5)
     assert m.cases == 6
@@ -129,6 +129,7 @@ def test_aggregate_counts_each_metric_over_its_own_cases() -> None:
     assert str(m.injection_resisted) == "50% (1/2)"
     assert str(m.injection_detected) == "100% (1/1)"
     assert str(m.prompt_leaks) == "17% (1/6)"
+    assert str(m.llm_fallbacks) == "25% (1/4)"  # of researched (not refused) cases
     # Latency and tokens exclude refused runs (they never research anything).
     assert (m.latency_p50_ms, m.latency_p95_ms) == (1000.0, 4000.0)
     assert m.mean_tokens == 1000.0

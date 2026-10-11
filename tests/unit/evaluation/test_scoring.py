@@ -341,3 +341,24 @@ def test_expected_calculations(dataset: Dataset, build: Builder) -> None:
     assert s.calculation_ok is False
     assert "expected calculation not performed" in s.reasons
     assert s.hallucinated_claims == 1  # 4.91 comes from a calculation the run does not have
+
+
+def test_llm_fallbacks_are_counted_only_in_llm_mode(dataset: Dataset, build: Builder) -> None:
+    from researchai.agent.models import TraceEvent
+    from researchai.evaluation.scoring import llm_fallbacks
+
+    trace = [
+        TraceEvent(
+            node="input_guard", ms=1, detail={"reason": "classifier unavailable (LLMError)"}
+        ),
+        TraceEvent(node="planner", ms=1, detail={"planned_by": "rules", "llm_fallback": "x"}),
+        TraceEvent(node="synthesize", ms=1, detail={"generated_by": "llm"}),
+        TraceEvent(node="verify_citations", ms=1, detail={"entailment": "lexical"}),
+    ]
+    result = build.result("q", [], status=RunStatus.ABSTAINED, trace=trace)
+    assert llm_fallbacks(result) == ["input_guard", "planner", "verify_citations"]
+    assert score(dataset, build, "unanswerable-001", result).llm_fallbacks == [
+        "input_guard", "planner", "verify_citations"
+    ]  # fmt: skip
+    offline = result.model_copy(update={"mode": "offline"})
+    assert llm_fallbacks(offline) == []
