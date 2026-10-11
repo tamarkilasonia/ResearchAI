@@ -110,6 +110,7 @@ class FakeTools:
     fetch_error: ErrorCode | None = None
     calls: list[ToolCallRecord] = field(default_factory=list)
     topics: list[Topic | None] = field(default_factory=list)
+    modes: list[SearchMode] = field(default_factory=list)
 
     async def search_corpus(
         self,
@@ -120,6 +121,7 @@ class FakeTools:
         topic: Topic | None = None,
     ) -> SearchResponse:
         self.topics.append(topic)
+        self.modes.append(mode)
         if self.fail_with is not None:
             self.calls.append(
                 ToolCallRecord("search_corpus", {"query": query}, False, self.fail_with, 1.0)

@@ -48,7 +48,7 @@ from researchai.agent.verification import (
 )
 from researchai.corpus.models import Language
 from researchai.safety.documents import instruction_spans, overlaps
-from researchai.textutil import keyword_terms, sentence_spans
+from researchai.textutil import keyword_terms, sentence_spans, text_terms
 
 SENTENCES_PER_SECTION = 2
 MIN_SENTENCE_CHARS = 25
@@ -125,7 +125,7 @@ def _candidates(
             continue  # a table header row states nothing
         if (evidence.doc_id, evidence.char_start + start) in skip:
             continue  # a value a newer source supersedes; it appears only in a conflict
-        overlap = len(terms & set(keyword_terms(sentence)))
+        overlap = len(terms & text_terms(sentence))
         if overlap < min(MIN_TERM_OVERLAP, len(terms)):
             continue
         has_number = any(ch.isdigit() for ch in sentence)

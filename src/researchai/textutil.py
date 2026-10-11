@@ -72,18 +72,30 @@ def light_stem(token: str) -> str:
     return token
 
 
-def keyword_terms(text: str) -> list[str]:
-    """Distinct, stemmed, stop-word-free word tokens (alphanumeric only)."""
+def _stems(text: str) -> list[str]:
+    """Distinct, stemmed, stop-word-free word tokens (alphanumeric only), in text order."""
     normalized = unicodedata.normalize("NFKC", text).casefold()
-    terms: list[str] = []
+    terms: dict[str, None] = {}
     for token in _TOKEN.findall(normalized):
         token = token.replace("_", "")
         if len(token) < MIN_TOKEN_CHARS or token in STOP_WORDS:
             continue
-        stem = light_stem(token)
-        if stem not in terms:
-            terms.append(stem)
-    return terms[:MAX_KEYWORD_TERMS]
+        terms[light_stem(token)] = None
+    return list(terms)
+
+
+def keyword_terms(text: str) -> list[str]:
+    """Search terms of a query: the first ``MAX_KEYWORD_TERMS`` distinct stems.
+
+    Capped because it builds full-text queries. To compare passages or
+    sentences use :func:`text_terms`, which keeps every term.
+    """
+    return _stems(text)[:MAX_KEYWORD_TERMS]
+
+
+def text_terms(text: str) -> set[str]:
+    """Every distinct stem of a passage or sentence (for overlap and coverage)."""
+    return set(_stems(text))
 
 
 def sentence_spans(text: str) -> list[tuple[int, int]]:

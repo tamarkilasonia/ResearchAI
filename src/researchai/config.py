@@ -84,6 +84,10 @@ class Settings(BaseSettings):
     max_tokens_per_run: int = Field(default=40_000, ge=1000, le=1_000_000)
     max_subquestions: int = Field(default=6, ge=1, le=10)
     hits_per_subquestion: int = Field(default=4, ge=1, le=10)
+    # auto: vector with a real embedding model, hybrid with the hash embedder (no
+    # semantic signal). Chosen on the dev split: with bge-m3, vector beat hybrid
+    # (recall@3 0.87 vs 0.78, 77 cases).
+    search_mode: Literal["auto", "vector", "keyword", "hybrid"] = "auto"
     run_timeout_seconds: float = Field(default=600.0, gt=0, le=3600)
 
     # --- embeddings ---
@@ -93,12 +97,23 @@ class Settings(BaseSettings):
     embedding_dim: int = Field(default=1024, ge=8, le=4096)
     embedding_batch_size: int = Field(default=32, ge=1, le=256)
 
+    @property
+    def agent_search_mode(self) -> Literal["vector", "keyword", "hybrid"]:
+        if self.search_mode != "auto":
+            return self.search_mode
+        return "hybrid" if self.embedding_provider is EmbeddingProvider.HASH else "vector"
+
     # --- API ---
     api_max_concurrent_runs: int = Field(default=2, ge=1, le=32)
     api_wait_seconds: float = Field(default=600.0, gt=0, le=3600)
 
     # --- corpus ---
     corpus_dir: Path = Path("corpus")
+
+    # --- evaluation ---
+    eval_dir: Path = Path("eval")
+    eval_output_dir: Path = Path("eval/runs")
+    eval_cost_per_1k_tokens: float = Field(default=0.0, ge=0)
 
     # --- MCP tool server ---
     mcp_server_url: str = "http://localhost:8765/mcp"

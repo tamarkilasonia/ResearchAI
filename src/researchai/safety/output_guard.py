@@ -46,6 +46,11 @@ def _union(texts: Iterable[str], n: int) -> set[tuple[str, ...]]:
 _PROMPT_NGRAMS = _union(SYSTEM_PROMPTS, PROMPT_NGRAM)
 
 
+def leaks_system_prompt(text: str) -> bool:
+    """True if ``text`` repeats a run of ``PROMPT_NGRAM`` words from any system prompt."""
+    return bool(_ngrams(text, PROMPT_NGRAM) & _PROMPT_NGRAMS)
+
+
 def links(text: str) -> list[str]:
     return [m.group().rstrip(".,;:") for m in _LINK.finditer(text)]
 
@@ -59,7 +64,7 @@ class OutputGuard:
         self._injected = _union((i.text for i in injections), INJECTION_NGRAM)
 
     def issue(self, text: str) -> OutputIssue | None:
-        if _ngrams(text, PROMPT_NGRAM) & _PROMPT_NGRAMS:
+        if leaks_system_prompt(text):
             return OutputIssue(sentence=text, reason="system_prompt_leak")
         if _ngrams(text, INJECTION_NGRAM) & self._injected:
             return OutputIssue(sentence=text, reason="injected_content")
