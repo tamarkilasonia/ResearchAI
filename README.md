@@ -240,7 +240,7 @@ the limitations in [eval/README.md](eval/README.md).
 | `POST /research` | Store a run and start it in the background: `202` with the run id and a `Location` header. `?wait=true` blocks up to `API_WAIT_SECONDS` and returns the finished run. |
 | `GET /research/{id}` | Status (`queued`, `running`, `completed`, `failed`), the full result (outcome such as `answered` or `refused`, report, citations, conflicts, citation checks, safety verdicts, trace, tool calls, token usage) and the report as Markdown. |
 | `GET /evaluations` | Evaluation runs, newest first. |
-| `POST /evaluations/run` | Start an evaluation run. Answers `503 EVALUATION_UNAVAILABLE` until the evaluation runner exists (phase 10). |
+| `POST /evaluations/run` | Evaluate a dataset split (`dataset`, `split`: dev/holdout, `mode`: offline/llm) in the background through the MCP server; the stored record gets the metrics, the full run is written to `EVAL_OUTPUT_DIR`. |
 | `GET /health` | Database and MCP tool server status; `503` with `"degraded"` if one is down. |
 
 - Runs execute under `API_MAX_CONCURRENT_RUNS` (a local LLM is the bottleneck); each
