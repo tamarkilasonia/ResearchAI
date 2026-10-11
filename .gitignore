@@ -45,3 +45,6 @@ eval/output/
 .idea/
 .vscode/
 *.swp
+
+# Evaluation run artefacts (summaries worth keeping are copied to eval/results/)
+eval/runs/

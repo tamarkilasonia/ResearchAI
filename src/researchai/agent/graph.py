@@ -128,6 +128,7 @@ class AgentContext:
     budget: RunBudget
     max_output_tokens: int
     max_evidence_tokens: int = 4000
+    search_mode: SearchMode = "hybrid"
 
 
 class ResearchState(TypedDict, total=False):
@@ -271,7 +272,10 @@ async def search_worker(state: WorkerInput, *, runtime: Runtime[AgentContext]) -
     for query in sq.queries:
         try:
             response = await ctx.tools.search_corpus(
-                query, top_k=ctx.budget.limits.hits_per_subquestion * 2, topic=state["topic"]
+                query,
+                top_k=ctx.budget.limits.hits_per_subquestion * 2,
+                mode=ctx.search_mode,
+                topic=state["topic"],
             )
         except ToolCallError as exc:
             if exc.code in FATAL_TOOL_CODES:

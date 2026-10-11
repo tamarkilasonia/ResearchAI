@@ -11,9 +11,17 @@ from sqlalchemy.ext.asyncio import (
 
 from researchai.config import Settings
 
+CONNECT_TIMEOUT_SECONDS = 10
+
 
 def create_engine(settings: Settings) -> AsyncEngine:
-    return create_async_engine(settings.database_url, pool_pre_ping=True)
+    # pre-ping replaces connections a database restart killed; the connect timeout
+    # makes a dead server an error instead of a hang.
+    return create_async_engine(
+        settings.database_url,
+        pool_pre_ping=True,
+        connect_args={"timeout": CONNECT_TIMEOUT_SECONDS},
+    )
 
 
 def session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:

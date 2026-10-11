@@ -28,7 +28,7 @@ from researchai.agent.models import (
     SufficiencyVerdict,
 )
 from researchai.corpus.models import Language
-from researchai.textutil import DOMAIN_COMMON, keyword_terms
+from researchai.textutil import DOMAIN_COMMON, text_terms
 
 MIN_SHARED_TERMS = 2
 
@@ -74,7 +74,7 @@ class Findings:
             return False
         needed = min(MIN_SHARED_TERMS, len(terms))
         return any(
-            len(terms & set(keyword_terms(claims[i].text))) >= needed
+            len(terms & text_terms(claims[i].text)) >= needed
             for i in (*conflict.current, *conflict.others)
             if i in claims
         )

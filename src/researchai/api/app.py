@@ -3,7 +3,7 @@
     POST /research              start a research run (202 + id; ?wait=true blocks)
     GET  /research/{id}         status, full result with audit trail, Markdown report
     GET  /evaluations           evaluation runs, newest first
-    POST /evaluations/run       start an evaluation run (503 until a runner exists)
+    POST /evaluations/run       evaluate a dataset split in the background
     GET  /health                database and MCP tool server status
 
 Run with ``uvicorn researchai.api.app:create_app --factory``. Tests pass
@@ -38,6 +38,7 @@ from researchai.api.evaluations import (
     EvaluationRunner,
     EvaluationStore,
     EvaluationStoreProtocol,
+    dataset_runner,
 )
 from researchai.api.runs import (
     PostgresRunRepository,
@@ -144,6 +145,7 @@ def build_services(settings: Settings) -> AppServices:
         runs=RunService(repository, run_agent, max_concurrent=settings.api_max_concurrent_runs),
         repository=repository,
         evaluations=EvaluationStore(sessions),
+        evaluation_runner=dataset_runner(settings),
         health_checks={"database": database, "tool_server": tool_server},
         close=engine.dispose,
     )

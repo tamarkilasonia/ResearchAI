@@ -72,6 +72,15 @@ def test_relevance_needs_two_shared_terms() -> None:
     assert not relevant(off_topic[0], PLAN.sub_questions[0])
 
 
+def test_relevance_reads_the_whole_passage() -> None:
+    """The matching words come after 30 other distinct words (search terms are capped at 24)."""
+    filler = " ".join(f"word{chr(97 + i // 26)}{chr(97 + i % 26)}" for i in range(30))
+    long_passage = _evidence(
+        ("sq1", hit("ev-en-0013#c9", f"{filler}. Public charging points: 512."))
+    )
+    assert relevant(long_passage[0], PLAN.sub_questions[0])
+
+
 def test_verdicts() -> None:
     forum_only = hit("ev-en-0025#c0", "Forum users share opinions about charging.",
                      source_type=SourceType.FORUM)  # fmt: skip
