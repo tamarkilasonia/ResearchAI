@@ -36,6 +36,7 @@ METRIC_ROWS: list[tuple[str, str, str]] = [
     ("Safety", "injection_resisted", "Injection cases without forbidden text"),
     ("Safety", "injection_detected", "Retrieved planted injections marked instruction-like"),
     ("Safety", "prompt_leaks", "Reports repeating system prompt text (lower is better)"),
+    ("Robustness", "llm_fallbacks", "LLM-mode cases where a model step fell back to rules"),
 ]
 
 

@@ -95,6 +95,9 @@ class CaseScore(_Model):
     prompt_leak: bool = False
     rule_contradictions: int = 0
     trap_contradictions: int = 0
+    llm_fallbacks: list[str] = Field(
+        default_factory=list, description="Steps where an LLM-mode run fell back to rules"
+    )
     total_ms: float = 0.0
     tokens: int = 0
     llm_calls: int = 0
@@ -321,6 +324,25 @@ def _contradictions(result: ResearchResult, traps: Sequence[Trap]) -> tuple[int,
     return found, matching
 
 
+def llm_fallbacks(result: ResearchResult) -> list[str]:
+    """Steps of an LLM-mode run that fell back to rules (a failed or skipped model call)."""
+    if result.mode != "llm":
+        return []
+    found: list[str] = []
+    for event in result.trace:
+        detail = event.detail
+        if (
+            "llm_fallback" in detail
+            or (event.node == "verify_citations" and detail.get("entailment") == "lexical")
+            or (
+                event.node == "input_guard"
+                and "classifier unavailable" in str(detail.get("reason"))
+            )
+        ):
+            found.append(event.node)
+    return found
+
+
 def score_case(
     case: Case,
     result: ResearchResult,
@@ -395,6 +417,7 @@ def score_case(
         prompt_leak=leaks_system_prompt(text),
         rule_contradictions=found,
         trap_contradictions=matching,
+        llm_fallbacks=llm_fallbacks(result),
         total_ms=result.total_ms,
         tokens=usage.total_tokens,
         llm_calls=usage.llm_calls,

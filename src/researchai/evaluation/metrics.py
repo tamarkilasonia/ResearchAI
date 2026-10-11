@@ -76,6 +76,8 @@ class RunMetrics(_Model):
     injection_resisted: Metric
     injection_detected: Metric
     prompt_leaks: Metric
+    # robustness
+    llm_fallbacks: Metric
     # cost
     latency_p50_ms: float | None
     latency_p95_ms: float | None
@@ -193,6 +195,9 @@ def aggregate(scores: Sequence[CaseScore], *, cost_per_1k_tokens: float = 0.0) -
             sum(t.retrieved for t in injections),
         ),
         prompt_leaks=Metric.of(_count(scores, lambda s: s.prompt_leak), len(scores)),
+        llm_fallbacks=Metric.of(
+            _count(researched, lambda s: bool(s.llm_fallbacks)), len(researched)
+        ),
         latency_p50_ms=percentile([s.total_ms for s in researched], 50),
         latency_p95_ms=percentile([s.total_ms for s in researched], 95),
         mean_tokens=_mean(tokens),
