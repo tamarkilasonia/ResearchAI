@@ -12,6 +12,11 @@ python -m researchai.evaluation rescore RUN_DIR             score a finished run
 python -m researchai.evaluation check RUN_DIR --max prompt_leaks=0 --min behavior=0.8
                                                             fail if a metric breaks a threshold
 
+python -m researchai.evaluation judge RUN_DIR               judge completeness, relevance, quality
+python -m researchai.evaluation label-sample RUN_DIR --out DIR   reports for human labelling
+python -m researchai.evaluation label DIR [--labeler NAME]  label them, one at a time
+python -m researchai.evaluation agreement DIR RUN_DIR       Cohen's kappa judge vs human
+
 Holdout runs need --holdout: holdout results are reported, never used for tuning.
 """
 
@@ -41,15 +46,27 @@ from researchai.evaluation.dataset import (
     validate,
     write_lock,
 )
+from researchai.evaluation.judge import Judgement, build_judge, judge_run, read_judgements
+from researchai.evaluation.labelling import (
+    compare,
+    label_session,
+    read_items,
+    read_labels,
+    render_agreement,
+    sample_items,
+    write_items,
+)
 from researchai.evaluation.live import evaluate, open_backend
 from researchai.evaluation.models import Split
 from researchai.evaluation.retrieval import distinct, summarize
 from researchai.evaluation.runner import (
+    CALIBRATION_FILE,
     EvaluationError,
     RunReport,
     RunStore,
     pending_cases,
     rescore,
+    score_store,
 )
 from researchai.evaluation.scoring import CaseScore
 from researchai.log import configure_logging
@@ -225,6 +242,87 @@ def check_command(args: argparse.Namespace) -> int:
     return 1 if failures else 0
 
 
+async def judge_command(
+    args: argparse.Namespace, settings: Settings, dataset: Dataset, corpus: Corpus
+) -> int:
+    store = RunStore(args.run_dir)
+    config = store.config()
+    try:
+        llm = build_judge(settings, generator=config.model, allow_same_model=args.allow_same_model)
+    except ValueError as exc:
+        raise EvaluationError(str(exc)) from exc
+    cases = [c for c in dataset.cases if c.id in set(config.case_ids)]
+
+    def show(number: int, judgement: Judgement) -> None:
+        labels = " ".join(f"{k}={v}" for k, v in judgement.labels.items())
+        print(f"[{number:>3}] {judgement.case_id:<20} {judgement.error or labels}", flush=True)
+
+    judgements = await judge_run(store.path, llm, cases, store.results(), on_judgement=show)
+    report = score_store(
+        store, config, dataset, corpus, cost_per_1k_tokens=settings.eval_cost_per_1k_tokens
+    )
+    print(
+        f"\n{len(judgements)} report(s) judged by {llm.model}; report: {store.path / 'report.md'}"
+    )
+    if report.judge is not None:
+        for name, c in report.judge.criteria.items():
+            print(f"  {name}: mean {c.mean:.2f} over {c.n}")
+    return 0
+
+
+def label_sample_command(args: argparse.Namespace, dataset: Dataset) -> int:
+    store = RunStore(args.run_dir)
+    config = store.config()
+    if config.split != "dev":
+        raise EvaluationError("labels are drawn from dev runs only; the holdout stays unseen")
+    if config.mode != "llm":
+        raise EvaluationError("label LLM-mode reports: those are what the judge grades")
+    cases = [c for c in dataset.cases if c.id in set(config.case_ids)]
+    items = sample_items(cases, store.results(), size=args.size, seed=args.seed)
+    meta = {
+        "run_id": config.run_id,
+        "dataset": f"{config.dataset} {config.dataset_version}",
+        "generator": config.model,
+        "seed": args.seed,
+        "items": len(items),
+        "created_at": datetime.now(UTC).isoformat(timespec="seconds"),
+    }
+    write_items(args.out, items, meta)
+    categories = Counter(item.category for item in items)
+    print(f"{len(items)} item(s) written to {args.out}: {dict(sorted(categories.items()))}")
+    return 0
+
+
+def agreement_command(
+    args: argparse.Namespace, settings: Settings, dataset: Dataset, corpus: Corpus
+) -> int:
+    items = read_items(args.label_dir)
+    human = read_labels(args.label_dir, args.labeler)
+    judgements = read_judgements(args.run_dir)
+    if not human or not judgements:
+        raise EvaluationError("needs human labels and judge labels; run `label` and `judge` first")
+    rows = compare(items, human, judgements)
+    model = next(iter(judgements.values())).model
+    calibrated = sum(1 for item in items if item.item in human and item.case_id in judgements)
+    calibration = {
+        "labeler": args.labeler,
+        "model": model,
+        "items": calibrated,
+        "criteria": [row.model_dump() for row in rows],
+    }
+    text = json.dumps(calibration, indent=2) + "\n"
+    (args.label_dir / "agreement.json").write_text(text, encoding="utf-8")
+    (args.run_dir / CALIBRATION_FILE).write_text(text, encoding="utf-8")
+    markdown = render_agreement(rows, labeler=args.labeler, model=model)
+    (args.label_dir / "agreement.md").write_text(markdown, encoding="utf-8")
+    store = RunStore(args.run_dir)
+    score_store(
+        store, store.config(), dataset, corpus, cost_per_1k_tokens=settings.eval_cost_per_1k_tokens
+    )
+    print(markdown)
+    return 0
+
+
 def main(argv: Sequence[str] | None = None, settings: Settings | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m researchai.evaluation")
     parser.add_argument("--dataset", default="default")
@@ -236,6 +334,21 @@ def main(argv: Sequence[str] | None = None, settings: Settings | None = None) ->
     sub.add_parser("split").add_argument("--write", action="store_true", required=True)
     sub.add_parser("lock").add_argument("--write", action="store_true", required=True)
     sub.add_parser("rescore").add_argument("run_dir", type=Path)
+    judge = sub.add_parser("judge")
+    judge.add_argument("run_dir", type=Path)
+    judge.add_argument("--allow-same-model", action="store_true")
+    sample = sub.add_parser("label-sample")
+    sample.add_argument("run_dir", type=Path)
+    sample.add_argument("--out", type=Path, required=True)
+    sample.add_argument("--size", type=int, default=35)
+    sample.add_argument("--seed", type=int, default=11)
+    label = sub.add_parser("label")
+    label.add_argument("label_dir", type=Path)
+    label.add_argument("--labeler", default="human")
+    agree = sub.add_parser("agreement")
+    agree.add_argument("label_dir", type=Path)
+    agree.add_argument("run_dir", type=Path)
+    agree.add_argument("--labeler", default="human")
     check = sub.add_parser("check")
     check.add_argument("run_dir", type=Path)
     check.add_argument("--max", action="append", default=[], metavar="METRIC=VALUE")
@@ -260,6 +373,9 @@ def main(argv: Sequence[str] | None = None, settings: Settings | None = None) ->
     args = parser.parse_args(argv)
     if args.command == "check":
         return check_command(args)
+    if args.command == "label":
+        label_session(args.label_dir, args.labeler)
+        return 0
     try:
         dataset = load_dataset(args.dataset, args.eval_dir)
         if args.command == "stats":
@@ -273,6 +389,13 @@ def main(argv: Sequence[str] | None = None, settings: Settings | None = None) ->
             return 0
         corpus = load_corpus(args.corpus_dir)
         problems = validate(dataset, corpus)
+        if args.command == "label-sample" and not problems:
+            return label_sample_command(args, dataset)
+        if args.command in ("judge", "agreement") and not problems:
+            settings = settings or get_settings()
+            if args.command == "agreement":
+                return agreement_command(args, settings, dataset, corpus)
+            return asyncio.run(judge_command(args, settings, dataset, corpus))
         if args.command == "rescore" and not problems:
             settings = settings or get_settings()
             report = rescore(
@@ -289,7 +412,7 @@ def main(argv: Sequence[str] | None = None, settings: Settings | None = None) ->
             configure_logging(settings)
             handler = run_command if args.command == "run" else retrieval_command
             return asyncio.run(handler(args, settings, dataset, corpus))
-    except (DatasetError, CorpusError, EvaluationError, ToolFailure) as exc:
+    except (DatasetError, CorpusError, EvaluationError, ToolFailure, OSError) as exc:
         print(exc, file=sys.stderr)
         return 1
     for problem in problems:

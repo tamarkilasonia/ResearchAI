@@ -16,7 +16,7 @@ import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -25,6 +25,7 @@ from researchai.agent.models import ResearchResult, RunStatus
 from researchai.corpus.ingest import latest_build
 from researchai.corpus.loader import Corpus
 from researchai.evaluation.dataset import Dataset
+from researchai.evaluation.judge import judge_summary, read_judgements
 from researchai.evaluation.metrics import RunMetrics, aggregate
 from researchai.evaluation.models import Case, Split
 from researchai.evaluation.report import render_report
@@ -65,10 +66,54 @@ class RunConfig(_Model):
     )
 
 
+class JudgeCriterion(_Model):
+    n: int
+    mean: float = Field(description="Mean judge score, 0..2")
+    kappa: float | None = None
+    weighted_kappa: float | None = None
+    reliable: bool | None = Field(default=None, description="None: not calibrated yet")
+
+
+class JudgeSection(_Model):
+    model: str
+    calibrated_on: int = Field(description="Human-labelled items behind the kappas (0: none)")
+    criteria: dict[str, JudgeCriterion]
+
+
 class RunReport(_Model):
     config: RunConfig
     metrics: RunMetrics
     scores: list[CaseScore]
+    judge: JudgeSection | None = None
+
+
+CALIBRATION_FILE = "calibration.json"
+
+
+def judge_section(path: Path) -> JudgeSection | None:
+    """Judge means for a run, with the calibration kappas if the run has been calibrated."""
+    judgements = read_judgements(path)
+    if not judgements:
+        return None
+    calibration: dict[str, Any] = {}
+    if (path / CALIBRATION_FILE).exists():
+        calibration = json.loads((path / CALIBRATION_FILE).read_text("utf-8"))
+    by_criterion = {row["criterion"]: row for row in calibration.get("criteria", [])}
+    summary = judge_summary(judgements)
+    return JudgeSection(
+        model=next(iter(judgements.values())).model,
+        calibrated_on=int(calibration.get("items", 0)),
+        criteria={
+            criterion: JudgeCriterion(
+                n=int(values["n"]),
+                mean=float(values["mean"]),
+                kappa=by_criterion.get(criterion, {}).get("kappa"),
+                weighted_kappa=by_criterion.get(criterion, {}).get("weighted_kappa"),
+                reliable=by_criterion.get(criterion, {}).get("reliable"),
+            )
+            for criterion, values in summary.items()
+        },
+    )
 
 
 async def check_index(
@@ -233,6 +278,7 @@ def score_store(
         if case_id in results
     ]
     report = build_report(config, outcomes, cost_per_1k_tokens=cost_per_1k_tokens)
+    report = report.model_copy(update={"judge": judge_section(store.path)})
     store.write_report(report)
     return report
 
