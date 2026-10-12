@@ -1,0 +1,91 @@
+{
+  "labeler": "human",
+  "model": "llama3.1:8b",
+  "items": 35,
+  "criteria": [
+    {
+      "criterion": "completeness",
+      "n": 35,
+      "raw_agreement": 0.5714,
+      "kappa": 0.2369,
+      "weighted_kappa": 0.4503,
+      "interpretation": "fair",
+      "reliable": false,
+      "human_mean": 1.086,
+      "judge_mean": 1.286,
+      "confusion": [
+        [
+          3,
+          2,
+          0
+        ],
+        [
+          0,
+          13,
+          9
+        ],
+        [
+          0,
+          4,
+          4
+        ]
+      ]
+    },
+    {
+      "criterion": "relevance",
+      "n": 35,
+      "raw_agreement": 0.7143,
+      "kappa": 0.0223,
+      "weighted_kappa": 0.1495,
+      "interpretation": "slight",
+      "reliable": false,
+      "human_mean": 1.714,
+      "judge_mean": 1.914,
+      "confusion": [
+        [
+          0,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          7
+        ],
+        [
+          0,
+          1,
+          25
+        ]
+      ]
+    },
+    {
+      "criterion": "quality",
+      "n": 35,
+      "raw_agreement": 0.5714,
+      "kappa": 0.2457,
+      "weighted_kappa": 0.3438,
+      "interpretation": "fair",
+      "reliable": false,
+      "human_mean": 0.743,
+      "judge_mean": 0.857,
+      "confusion": [
+        [
+          4,
+          8,
+          1
+        ],
+        [
+          5,
+          13,
+          0
+        ],
+        [
+          0,
+          1,
+          3
+        ]
+      ]
+    }
+  ]
+}
