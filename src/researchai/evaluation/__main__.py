@@ -271,25 +271,39 @@ async def judge_command(
 
 
 def label_sample_command(args: argparse.Namespace, dataset: Dataset) -> int:
+    """Draw (or extend, while the run is still going) the sample for human labelling."""
     store = RunStore(args.run_dir)
     config = store.config()
     if config.split != "dev":
         raise EvaluationError("labels are drawn from dev runs only; the holdout stays unseen")
     if config.mode != "llm":
         raise EvaluationError("label LLM-mode reports: those are what the judge grades")
+    existing = []
+    if (args.out / "meta.json").exists():
+        meta = json.loads((args.out / "meta.json").read_text(encoding="utf-8"))
+        if (meta["run_id"], meta["seed"], meta["size"]) != (config.run_id, args.seed, args.size):
+            raise EvaluationError(f"{args.out} holds a sample of another run or setting")
+        existing = read_items(args.out)
     cases = [c for c in dataset.cases if c.id in set(config.case_ids)]
-    items = sample_items(cases, store.results(), size=args.size, seed=args.seed)
+    items, waiting = sample_items(
+        cases, store.results(), size=args.size, seed=args.seed, existing=existing
+    )
     meta = {
         "run_id": config.run_id,
         "dataset": f"{config.dataset} {config.dataset_version}",
         "generator": config.model,
         "seed": args.seed,
+        "size": args.size,
         "items": len(items),
-        "created_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "complete": not waiting,
+        "updated_at": datetime.now(UTC).isoformat(timespec="seconds"),
     }
     write_items(args.out, items, meta)
     categories = Counter(item.category for item in items)
-    print(f"{len(items)} item(s) written to {args.out}: {dict(sorted(categories.items()))}")
+    print(f"{len(items) - len(existing)} item(s) added, {len(items)} in {args.out}: "
+          f"{dict(sorted(categories.items()))}")  # fmt: skip
+    if waiting:
+        print(f"still waiting for results in: {', '.join(sorted(set(waiting)))}")
     return 0
 
 

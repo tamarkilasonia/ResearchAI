@@ -187,23 +187,38 @@ def _dev_answers(dataset: Dataset) -> tuple[list[Any], dict[str, ResearchResult]
 
 def test_sample_is_seeded_and_spread_over_categories(dataset: Dataset) -> None:
     cases, results = _dev_answers(dataset)
-    items = sample_items(cases, results, size=20, seed=11)
+    items, waiting = sample_items(cases, results, size=20, seed=11)
+    assert waiting == []
     assert len(items) == 20
     assert [i.item for i in items] == list(range(1, 21))
     categories = {i.category for i in items}
     assert "harmful" not in categories
     assert "unanswerable" not in categories
     assert len(categories) == 9  # every answerable category
-    assert items == sample_items(cases, results, size=20, seed=11)
-    assert items != sample_items(cases, results, size=20, seed=12)
-    assert len(sample_items(cases, results, size=500, seed=1)) == 77  # all judgeable dev cases
+    assert items == sample_items(cases, results, size=20, seed=11)[0]
+    assert items != sample_items(cases, results, size=20, seed=12)[0]
+    assert len(sample_items(cases, results, size=500, seed=1)[0]) == 77  # all judgeable dev cases
+
+
+def test_a_sample_drawn_during_the_run_equals_one_drawn_at_the_end(dataset: Dataset) -> None:
+    cases, results = _dev_answers(dataset)
+    final, _ = sample_items(cases, results, size=35, seed=11)
+    early_results = {k: v for k, v in results.items() if not k.startswith(("numeric", "outdated"))}
+    early, waiting = sample_items(cases, early_results, size=35, seed=11)
+    assert sorted(set(waiting)) == ["numeric", "outdated"]
+    assert {i.category for i in early}.isdisjoint({"numeric", "outdated"})
+    later, waiting = sample_items(cases, results, size=35, seed=11, existing=early)
+    assert waiting == []
+    assert later[: len(early)] == early  # nothing already chosen changes
+    assert [i.item for i in later] == list(range(1, 36))
+    assert {i.case_id for i in later} == {i.case_id for i in final}
 
 
 def test_a_labelling_session_saves_every_answer_and_resumes(
     dataset: Dataset, tmp_path: Path
 ) -> None:
     cases, results = _dev_answers(dataset)
-    items = sample_items(cases, results, size=3, seed=11)
+    items, _ = sample_items(cases, results, size=3, seed=11)
     folder = tmp_path / "labels"
     write_items(folder, items, {"run_id": "r"})
     assert read_items(folder) == items
@@ -224,13 +239,14 @@ def test_a_labelling_session_saves_every_answer_and_resumes(
     assert set(read_labels(folder, "tamar")) == {1, 2, 3}
     assert not (folder / CURRENT_FILE).exists()
     assert read_labels(folder, "someone-else") == {}
-    with pytest.raises(FileExistsError):
-        write_items(folder, items, {})
+    write_items(folder, items, {})  # writing the same sample again is fine
+    with pytest.raises(ValueError, match="different sample"):
+        write_items(folder, items[::-1], {})
 
 
 def test_compare_uses_only_items_both_labelled(dataset: Dataset) -> None:
     cases, results = _dev_answers(dataset)
-    items = sample_items(cases, results, size=4, seed=11)
+    items, _ = sample_items(cases, results, size=4, seed=11)
     now = datetime.now(UTC)
 
     def human(item: int, labels: dict[str, int | None]) -> HumanLabel:
@@ -299,7 +315,12 @@ def test_cli_judge_sample_label_and_agreement(
 
     labels = tmp_path / "labels"
     assert cli.main(_args("label-sample", str(run), "--out", str(labels), "--size", "6")) == 0
-    assert "6 item(s) written" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "6 item(s) added, 6 in" in out
+    assert cli.main(_args("label-sample", str(run), "--out", str(labels), "--size", "6")) == 0
+    assert "0 item(s) added, 6 in" in capsys.readouterr().out
+    assert cli.main(_args("label-sample", str(run), "--out", str(labels), "--seed", "3")) == 1
+    assert "another run or setting" in capsys.readouterr().err
     items = read_items(labels)
     answers = iter(["2", "1", "0", ""] * len(items))
     monkeypatch.setattr("builtins.input", lambda _: next(answers))
