@@ -74,6 +74,30 @@ planted contradictions are reported, low-reliability values are not adopted and
 an expected calculation was made. Completeness (key points), relevance and
 report quality need the LLM judge, which is calibrated against human labels.
 
+## LLM judge and its calibration
+
+Completeness, relevance and report quality cannot be checked deterministically,
+so an LLM judge grades them 0-2 (`JUDGE_MODEL`, a different model family from
+the generator; the command refuses to let a model judge its own reports). The
+judge sees exactly what a human labeller sees: the question, the key points and
+the report without any automatic score, with the rubric of
+[labels/GUIDELINES.md](labels/GUIDELINES.md).
+
+```bash
+uv run python -m researchai.evaluation judge eval/runs/<llm-run>
+uv run python -m researchai.evaluation label-sample eval/runs/<llm-run> --out eval/labels/<sample>
+uv run python -m researchai.evaluation label eval/labels/<sample> --labeler <name>
+uv run python -m researchai.evaluation agreement eval/labels/<sample> eval/runs/<llm-run> --labeler <name>
+```
+
+`agreement` reports, per criterion, raw agreement, Cohen's kappa (chance-
+corrected) and quadratic-weighted kappa (which credits near misses on the 0-2
+scale), the confusion matrix and the mean label of each rater; it also writes
+the calibration into the run, whose report then shows judge scores **only next
+to their kappa**. Below 0.4 a criterion is marked unreliable (Landis and Koch:
+fair or worse), and its judge score should not be trusted. Labels come from dev
+runs only; the holdout stays unseen.
+
 ## Cases
 
 Categories: `factual`, `comparison`, `recommendation`, `numeric` (needs the
