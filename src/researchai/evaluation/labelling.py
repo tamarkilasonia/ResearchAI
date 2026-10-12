@@ -21,7 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from researchai.agent.models import ResearchResult
 from researchai.evaluation.agreement import CriterionAgreement, agreement
 from researchai.evaluation.judge import CRITERIA, Judgement, judgeable, report_for_review
-from researchai.evaluation.models import Case
+from researchai.evaluation.models import Behavior, Case
 
 ITEMS_FILE = "items.jsonl"
 CURRENT_FILE = "CURRENT_ITEM.md"
@@ -75,37 +75,77 @@ class HumanLabel(_Model):
 # ----------------------------------------------------------------- sample
 
 
+def quotas(categories: Sequence[str], size: int) -> dict[str, int]:
+    """Items per category: round-robin over the sorted categories until ``size``."""
+    ordered = sorted(set(categories))
+    counts = dict.fromkeys(ordered, 0)
+    for n in range(size):
+        if not ordered:
+            break
+        counts[ordered[n % len(ordered)]] += 1
+    return counts
+
+
 def sample_items(
-    cases: Sequence[Case], results: dict[str, ResearchResult], *, size: int, seed: int
-) -> list[LabelItem]:
-    """Seeded sample of judgeable reports, round-robin over categories."""
+    cases: Sequence[Case],
+    results: dict[str, ResearchResult],
+    *,
+    size: int,
+    seed: int,
+    existing: Sequence[LabelItem] = (),
+) -> tuple[list[LabelItem], list[str]]:
+    """Seeded sample of judgeable reports, spread over the answerable categories.
+
+    Each category gets a fixed quota and walks its cases in a seeded order,
+    taking judgeable reports and skipping the rest. A case that has no result
+    yet stops its category, so the sample can be drawn while a run is still
+    going: labelling can start on finished categories and later additions never
+    change what was already chosen. Returns all items (``existing`` first,
+    newcomers appended) and the categories still waiting for results.
+    """
+    answerable = [c for c in cases if c.behavior in (Behavior.ANSWER, Behavior.FLAG_CONFLICT)]
     by_category: dict[str, list[Case]] = defaultdict(list)
-    for case in cases:
-        if case.id in results and judgeable(case, results[case.id]):
-            by_category[case.category.value].append(case)
-    for members in by_category.values():
-        members.sort(key=lambda c: hashlib.sha256(f"{seed}:{c.id}".encode()).hexdigest())
-    picked: list[Case] = []
-    while len(picked) < size and any(by_category.values()):
-        for category in sorted(by_category):
-            if by_category[category] and len(picked) < size:
-                picked.append(by_category[category].pop(0))
-    return [
-        LabelItem(
-            item=number,
-            case_id=case.id,
-            category=case.category.value,
-            language=case.language.value,
-            question=case.question,
-            key_points=case.key_points,
-            report=report_for_review(results[case.id]),
+    for case in answerable:
+        by_category[case.category.value].append(case)
+    taken = {item.case_id for item in existing}
+    items = list(existing)
+    waiting: list[str] = []
+    for category, quota in quotas(list(by_category), size).items():
+        members = sorted(
+            by_category[category],
+            key=lambda c: hashlib.sha256(f"{seed}:{c.id}".encode()).hexdigest(),
         )
-        for number, case in enumerate(picked, start=1)
-    ]
+        picked = 0
+        for case in members:
+            if picked == quota:
+                break
+            if case.id not in results:
+                waiting.append(category)
+                break
+            if not judgeable(case, results[case.id]):
+                continue
+            picked += 1
+            if case.id not in taken:
+                items.append(
+                    LabelItem(
+                        item=len(items) + 1,
+                        case_id=case.id,
+                        category=category,
+                        language=case.language.value,
+                        question=case.question,
+                        key_points=case.key_points,
+                        report=report_for_review(results[case.id]),
+                    )
+                )
+    return items, waiting
 
 
 def write_items(directory: Path, items: Sequence[LabelItem], meta: dict[str, object]) -> None:
-    directory.mkdir(parents=True, exist_ok=False)
+    """Write (or extend) a sample; items already written are never changed."""
+    directory.mkdir(parents=True, exist_ok=True)
+    existing = read_items(directory) if (directory / ITEMS_FILE).exists() else []
+    if items[: len(existing)] != existing:
+        raise ValueError(f"{directory} holds a different sample; use a new folder")
     (directory / "meta.json").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
     (directory / ITEMS_FILE).write_text(
         "".join(item.model_dump_json() + "\n" for item in items), encoding="utf-8"
@@ -206,7 +246,17 @@ def label_session(
             handle.write(label.model_dump_json() + "\n")
         labelled += 1
     (directory / CURRENT_FILE).unlink(missing_ok=True)
-    show(f"All {len(items)} items labelled. Thank you!")
+    meta_file = directory / "meta.json"
+    complete = (
+        json.loads(meta_file.read_text("utf-8")).get("complete", True)
+        if meta_file.exists()
+        else True
+    )
+    if complete:
+        show(f"All {len(items)} items labelled. Thank you!")
+    else:
+        show(f"All {len(items)} items available so far are labelled. More are added when the "
+             "run finishes; run the same command again then.")  # fmt: skip
     return labelled
 
 
