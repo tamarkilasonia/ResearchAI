@@ -9,6 +9,7 @@ cases). An interrupted run is resumed from its directory.
 from __future__ import annotations
 
 import asyncio
+import gzip
 import json
 import logging
 import os
@@ -239,13 +240,18 @@ class RunStore:
             os.fsync(handle.fileno())
 
     def results(self) -> dict[str, ResearchResult]:
-        """Latest result per case."""
+        """Latest result per case (from ``results.jsonl``, or the archived ``.gz``)."""
+        plain = self.path / "results.jsonl"
+        text = (
+            plain.read_text(encoding="utf-8")
+            if plain.exists()
+            else gzip.decompress((self.path / "results.jsonl.gz").read_bytes()).decode("utf-8")
+        )
         latest: dict[str, ResearchResult] = {}
-        with (self.path / "results.jsonl").open(encoding="utf-8") as handle:
-            for line in handle:
-                if line.strip():
-                    row = json.loads(line)
-                    latest[row["case_id"]] = ResearchResult.model_validate(row["result"])
+        for line in text.splitlines():
+            if line.strip():
+                row = json.loads(line)
+                latest[row["case_id"]] = ResearchResult.model_validate(row["result"])
         return latest
 
     def write_report(self, report: RunReport) -> None:
