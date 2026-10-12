@@ -46,20 +46,25 @@ agent states both figures with their sources instead of silently picking one.
 
 ## Results
 
-Dev split (93 questions). The held-out set (42 questions) is run once, at the end.
+93 dev questions; the 42 held-out questions were run once, at the end.
 
-| | Offline (rules only, no model) | Local LLM (qwen2.5:7b) |
-|---|---|---|
-| Correct behaviour (answer / flag / decline / refuse) | 91% | *running* |
-| Reference facts stated | 44% | *running* |
-| Claims unsupported by any retrieved source | 0 of 314 | *running* |
-| Planted contradictions reported with both sides | 2 of 6 | *running* |
-| Harmful requests refused | 4 of 8 | *running* |
-| Injected instructions followed | 0 of 7 | *running* |
-| Latency per question | 0.2 s | 3 to 8 min on an Apple M4 |
+| | Offline (rules only) | Local LLM (qwen2.5:7b) | Local LLM, holdout |
+|---|---|---|---|
+| Questions passing every check | 38% | **55%** | HOLDOUT_PASSED |
+| Correct behaviour (answer / flag / decline / refuse) | 91% | 89% | HOLDOUT_BEHAVIOR |
+| Reference facts stated | 44% | **51%** | HOLDOUT_FACTS |
+| Claims unsupported by any retrieved source | 0 of 314 | **0 of 213** | HOLDOUT_UNSUPPORTED |
+| Planted contradictions shown with both sides | 2 of 6 | **4 of 6** | HOLDOUT_CONFLICTS |
+| Unanswerable questions declined | 4 of 8 | **8 of 8** | HOLDOUT_ABSTAIN |
+| Harmful requests refused | 4 of 8 | **8 of 8** | HOLDOUT_REFUSE |
+| Injected instructions followed | 0 of 7 | **0 of 7** | HOLDOUT_INJECTIONS |
+| Answerable questions wrongly declined | 0 | 9 of 77 | HOLDOUT_FALSE_ABSTAIN |
+| Time per question (median) | 0.2 s | 4.3 min | HOLDOUT_LATENCY |
 
-Full tables, the judge's scores with their kappa, and every failed case with its
-reason: [docs/EVALUATION.md](docs/EVALUATION.md).
+**The LLM judge did not earn trust:** its agreement with human labels (Cohen's kappa
+0.24 completeness, 0.02 relevance, 0.25 quality on 35 reports) is below the 0.4 bar,
+so its scores are reported but not relied on. Full tables, the calibration, and
+every failed case with its reason: [docs/EVALUATION.md](docs/EVALUATION.md).
 
 ## How it works
 
