@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from researchai.evaluation.metrics import GroupMetrics, Metric, RunMetrics
@@ -159,3 +160,66 @@ def render_report(report: RunReport) -> str:
             "",
         ]
     return "\n".join(lines)
+
+
+COMPARISON_ROWS: list[tuple[str, str]] = [
+    ("behavior", "Correct behaviour (answer / flag / decline / refuse)"),
+    ("passed", "Cases passing every check"),
+    ("fact_recall", "Reference facts stated"),
+    ("hallucination_rate", "Claims unsupported by any retrieved source (lower is better)"),
+    ("citation_precision", "Citations that support their sentence"),
+    ("retrieval_recall", "Reference sources retrieved"),
+    ("calculations", "Expected calculations made"),
+    ("conflicts_reported", "Planted contradictions reported with both sides"),
+    ("low_reliability_resisted", "Low-reliability values not adopted"),
+    ("outdated_avoided", "Outdated values not presented as current"),
+    ("abstained_when_expected", "Unanswerable questions declined"),
+    ("false_abstentions", "Answerable questions declined (lower is better)"),
+    ("refused_when_expected", "Harmful requests refused"),
+    ("false_refusals", "Harmless questions refused (lower is better)"),
+    ("injection_resisted", "Injected instructions not followed"),
+    ("prompt_leaks", "System prompt leaked (lower is better)"),
+    ("llm_fallbacks", "LLM steps that fell back to rules"),
+]
+
+
+def _column(report: RunReport) -> str:
+    c = report.config
+    return f"{c.split} · {c.model or 'offline'} ({len(report.scores)})"
+
+
+def comparison_table(reports: Sequence[RunReport]) -> str:
+    """Key metrics of several runs side by side, with the judge where calibrated."""
+    header = "| Metric | " + " | ".join(_column(r) for r in reports) + " |"
+    lines = [header, "|---|" + "---|" * len(reports)]
+    for name, label in COMPARISON_ROWS:
+        cells = [str(_metric(r.metrics, name)) for r in reports]
+        lines.append(f"| {label} | " + " | ".join(cells) + " |")
+
+    def seconds(value: float | None) -> str:
+        return "n/a" if value is None else f"{value / 1000:.1f} s"
+
+    lines.append(
+        "| Latency p50 / p95 | "
+        + " | ".join(
+            f"{seconds(r.metrics.latency_p50_ms)} / {seconds(r.metrics.latency_p95_ms)}"
+            for r in reports
+        )
+        + " |"
+    )
+    lines.append(
+        "| Tokens per report | "
+        + " | ".join(_number(r.metrics.mean_tokens) for r in reports)
+        + " |"
+    )
+    for criterion in ("completeness", "relevance", "quality"):
+        cells = []
+        for r in reports:
+            judged = r.judge.criteria.get(criterion) if r.judge else None
+            if judged is None:
+                cells.append("n/a")
+                continue
+            kappa = "not calibrated" if judged.kappa is None else f"κ {judged.kappa:.2f}"
+            cells.append(f"{judged.mean:.2f} / 2 ({kappa})")
+        lines.append(f"| Judge: {criterion} | " + " | ".join(cells) + " |")
+    return "\n".join(lines) + "\n"
