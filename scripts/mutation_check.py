@@ -141,6 +141,16 @@ MUTANTS: tuple[Mutant, ...] = (
     Mutant("sufficiency", "any passage counts as relevant evidence",
            "src/researchai/agent/sufficiency.py",
            "    return shared >= min(MIN_SHARED_TERMS, len(terms))", "    return True  # MUTANT"),
+    Mutant("kappa-chance", "Cohen's kappa without the chance correction",
+           "src/researchai/evaluation/agreement.py",
+           "    return round(1 - disagreement / expected, 4)", "    return round(1 - disagreement, 4)"),
+    Mutant("judge-sees-scores", "the judge sees the report's automatic score line",
+           "src/researchai/evaluation/judge.py",
+           '    return _STATUS_LINE.sub("", render_markdown(result).rstrip()).rstrip() + "\\n"',
+           '    return render_markdown(result)  # MUTANT'),
+    Mutant("label-holdout", "human labels may be drawn from the holdout",
+           "src/researchai/evaluation/__main__.py",
+           '    if config.split != "dev":', "    if False:  # MUTANT"),
 )  # fmt: skip
 
 
