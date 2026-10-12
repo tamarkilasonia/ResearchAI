@@ -1,6 +1,6 @@
 [project]
 name = "researchai"
-version = "0.0.1"
+version = "1.0.0"
 description = "Evaluated, citation-verified research agent over a frozen bilingual corpus"
 readme = "README.md"
 license = "MIT"
