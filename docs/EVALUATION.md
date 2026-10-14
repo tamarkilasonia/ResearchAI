@@ -21,7 +21,8 @@ How ResearchAI is measured, what the numbers are, and how far to trust them.
   label against the corpus: each reference value must appear in a cited document.
 - **Split:** 93 dev and 42 holdout cases, assigned per category by a hash rule
   (no hand-picking) and frozen by a digest. Rules and prompts were only ever
-  changed using dev results; the holdout was run once, with the final code.
+  changed using dev results; the holdout was run once, offline, with the final
+  code (the LLM holdout run was not completed, see Results).
 - **Models:** generator qwen2.5:7b, judge llama3.1:8b (a different family), embeddings
   bge-m3, all local through Ollama on an Apple M4 with 16 GB; temperature 0 and a
   fixed seed. The offline baseline uses no model at all (rules and templates).
@@ -52,7 +53,43 @@ the offline hash embedder keeps hybrid.
 ## Results
 
 <!-- results:start -->
-*(generated from the run summaries with `python -m researchai.evaluation tables`)*
+Columns: split · generator (number of questions). Each cell: share (count). Generated with
+`python -m researchai.evaluation tables` from the archived runs in
+[eval/results](../eval/results/); every failed case, with its question, expected and
+actual answer and the reason, is in each run's `report.md`.
+
+| Metric | dev · offline (93) | dev · qwen2.5:7b (93) | holdout · offline (42) |
+|---|---|---|---|
+| Correct behaviour (answer / flag / decline / refuse) | 91% (85/93) | 89% (83/93) | 88% (37/42) |
+| Cases passing every check | 38% (35/93) | 55% (51/93) | 40% (17/42) |
+| Reference facts stated | 44% (47/108) | 51% (55/108) | 48% (23/48) |
+| Claims unsupported by any retrieved source (lower is better) | 0% (0/314) | 0% (0/213) | 0% (0/151) |
+| Citations that support their sentence | 100% (374/374) | 94% (380/406) | 100% (183/183) |
+| Reference sources retrieved | 75% (81/108) | 74% (80/108) | 65% (31/48) |
+| Expected calculations made | 0% (0/12) | 33% (4/12) | 0% (0/5) |
+| Planted contradictions reported with both sides | 33% (2/6) | 67% (4/6) | 100% (1/1) |
+| Low-reliability values not adopted | 33% (1/3) | 67% (2/3) | 33% (1/3) |
+| Outdated values not presented as current | 62% (5/8) | 62% (5/8) | 75% (3/4) |
+| Unanswerable questions declined | 50% (4/8) | 100% (8/8) | 0% (0/4) |
+| Answerable questions declined (lower is better) | 0% (0/77) | 12% (9/77) | 0% (0/34) |
+| Harmful requests refused | 50% (4/8) | 100% (8/8) | 75% (3/4) |
+| Harmless questions refused (lower is better) | 0% (0/85) | 1% (1/85) | 0% (0/38) |
+| Injected instructions not followed | 100% (7/7) | 100% (7/7) | 100% (4/4) |
+| System prompt leaked (lower is better) | 0% (0/93) | 0% (0/93) | 0% (0/42) |
+| LLM steps that fell back to rules | n/a | 12% (10/84) | n/a |
+| Latency p50 / p95 | 0.2 s / 0.4 s | 258.1 s / 490.9 s | 1.2 s / 3.0 s |
+| Tokens per report | 0.0 | 5,762.2 | 0.0 |
+| Judge: completeness | n/a | 1.22 / 2 (κ 0.24) | n/a |
+| Judge: relevance | n/a | 1.75 / 2 (κ 0.02) | n/a |
+| Judge: quality | n/a | 0.85 / 2 (κ 0.25) | n/a |
+
+**Not run: the LLM on the holdout.** It needs about 3.5 hours of local generation and
+was not completed for this release (2 of 42 questions ran before it was stopped;
+they are not reported). The holdout was evaluated offline, with the final code: it
+scores like dev (40% vs 38% of cases passing, 48% vs 44% of facts), so the rules
+were not overfitted to the dev questions. Whether the LLM generalises equally well
+is untested. The offline holdout latency is inflated: that run shared the machine
+with an LLM run.
 <!-- results:end -->
 
 ## Judge calibration
@@ -145,5 +182,7 @@ run's `results.jsonl`.
   agreement with that person, not with "the truth".
 - **Rough text checks:** a few outdated values and forbidden phrases are words,
   which a deterministic check can only approximate.
+- **No LLM holdout:** the LLM was evaluated on dev only; its holdout run was not
+  completed.
 - **Local model:** a local 7B model on a laptop; larger models would score
   differently, and latency is dominated by local generation.
