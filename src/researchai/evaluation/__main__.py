@@ -16,6 +16,7 @@ python -m researchai.evaluation judge RUN_DIR               judge completeness, 
 python -m researchai.evaluation label-sample RUN_DIR --out DIR   reports for human labelling
 python -m researchai.evaluation label DIR [--labeler NAME]  label them, one at a time
 python -m researchai.evaluation agreement DIR RUN_DIR       Cohen's kappa judge vs human
+python -m researchai.evaluation tables RUN_DIR [RUN_DIR ...]   key metrics side by side
 
 Holdout runs need --holdout: holdout results are reported, never used for tuning.
 """
@@ -58,6 +59,7 @@ from researchai.evaluation.labelling import (
 )
 from researchai.evaluation.live import evaluate, open_backend
 from researchai.evaluation.models import Split
+from researchai.evaluation.report import comparison_table
 from researchai.evaluation.retrieval import distinct, summarize
 from researchai.evaluation.runner import (
     CALIBRATION_FILE,
@@ -359,6 +361,8 @@ def main(argv: Sequence[str] | None = None, settings: Settings | None = None) ->
     label = sub.add_parser("label")
     label.add_argument("label_dir", type=Path)
     label.add_argument("--labeler", default="human")
+    tables = sub.add_parser("tables")
+    tables.add_argument("run_dirs", type=Path, nargs="+")
     agree = sub.add_parser("agreement")
     agree.add_argument("label_dir", type=Path)
     agree.add_argument("run_dir", type=Path)
@@ -387,6 +391,13 @@ def main(argv: Sequence[str] | None = None, settings: Settings | None = None) ->
     args = parser.parse_args(argv)
     if args.command == "check":
         return check_command(args)
+    if args.command == "tables":
+        reports = [
+            RunReport.model_validate_json((path / "summary.json").read_text("utf-8"))
+            for path in args.run_dirs
+        ]
+        print(comparison_table(reports), end="")
+        return 0
     if args.command == "label":
         label_session(args.label_dir, args.labeler)
         return 0

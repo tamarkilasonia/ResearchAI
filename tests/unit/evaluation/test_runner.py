@@ -250,6 +250,20 @@ async def test_a_failed_case_can_stop_the_run(dataset: Dataset, corpus: Corpus) 
     assert len(outcomes) == 4
 
 
+async def test_archived_runs_can_be_rescored(
+    tmp_path: Path, dataset: Dataset, corpus: Corpus
+) -> None:
+    import gzip
+
+    store = RunStore.create(tmp_path, _config(["unanswerable-001"]))
+    store.append("unanswerable-001", _result("q", "r"))
+    plain = store.path / "results.jsonl"
+    (store.path / "results.jsonl.gz").write_bytes(gzip.compress(plain.read_bytes()))
+    plain.unlink()
+    report = rescore(store.path, dataset, corpus)
+    assert [s.case_id for s in report.scores] == ["unanswerable-001"]
+
+
 async def test_rescore_rejects_results_of_unknown_cases(
     tmp_path: Path, dataset: Dataset, corpus: Corpus
 ) -> None:
