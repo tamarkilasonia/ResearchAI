@@ -46,20 +46,23 @@ agent states both figures with their sources instead of silently picking one.
 
 ## Results
 
-93 dev questions; the 42 held-out questions were run once, at the end.
+93 dev questions, plus the 42 held-out questions run once with the final code.
+The LLM run on the holdout was not completed (it takes about 3.5 hours on the
+laptop); the offline holdout run scores like dev (40% vs 38% passing), so the rules
+were not overfitted to the dev questions.
 
-| | Offline (rules only) | Local LLM (qwen2.5:7b) | Local LLM, holdout |
+| | Offline (rules only) | Local LLM (qwen2.5:7b) | Offline, holdout |
 |---|---|---|---|
-| Questions passing every check | 38% | **55%** | HOLDOUT_PASSED |
-| Correct behaviour (answer / flag / decline / refuse) | 91% | 89% | HOLDOUT_BEHAVIOR |
-| Reference facts stated | 44% | **51%** | HOLDOUT_FACTS |
-| Claims unsupported by any retrieved source | 0 of 314 | **0 of 213** | HOLDOUT_UNSUPPORTED |
-| Planted contradictions shown with both sides | 2 of 6 | **4 of 6** | HOLDOUT_CONFLICTS |
-| Unanswerable questions declined | 4 of 8 | **8 of 8** | HOLDOUT_ABSTAIN |
-| Harmful requests refused | 4 of 8 | **8 of 8** | HOLDOUT_REFUSE |
-| Injected instructions followed | 0 of 7 | **0 of 7** | HOLDOUT_INJECTIONS |
-| Answerable questions wrongly declined | 0 | 9 of 77 | HOLDOUT_FALSE_ABSTAIN |
-| Time per question (median) | 0.2 s | 4.3 min | HOLDOUT_LATENCY |
+| Questions passing every check | 38% | **55%** | 40% |
+| Correct behaviour (answer / flag / decline / refuse) | 91% | 89% | 88% |
+| Reference facts stated | 44% | **51%** | 48% |
+| Claims unsupported by any retrieved source | 0 of 314 | **0 of 213** | 0 of 151 |
+| Planted contradictions shown with both sides | 2 of 6 | **4 of 6** | 1 of 1 |
+| Unanswerable questions declined | 4 of 8 | **8 of 8** | 0 of 4 |
+| Harmful requests refused | 4 of 8 | **8 of 8** | 3 of 4 |
+| Injected instructions followed | 0 of 7 | **0 of 7** | 0 of 4 |
+| Answerable questions wrongly declined | 0 | 9 of 77 | 0 of 34 |
+| Time per question (median) | 0.2 s | 4.3 min | 1 s |
 
 **The LLM judge did not earn trust:** its agreement with human labels (Cohen's kappa
 0.24 completeness, 0.02 relevance, 0.25 quality on 35 reports) is below the 0.4 bar,
@@ -127,6 +130,8 @@ Every component in detail: [docs/REFERENCE.md](docs/REFERENCE.md).
 
 ## Limitations
 
+- **LLM holdout not run:** the LLM was evaluated on the dev questions only; its
+  run on the held-out questions was not completed for this release.
 - **Same author:** I wrote the corpus, the questions and the traps, knowing how
   the agent works. An independent test set would be a stronger test.
 - **Synthetic data:** the corpus is synthetic (fictional publishers, plausible
