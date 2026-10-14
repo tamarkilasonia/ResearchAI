@@ -27,7 +27,17 @@ from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-COPIED = ("src", "tests", "scripts", "corpus", "eval", "pyproject.toml", ".env.example")
+COPIED = (
+    "src",
+    "tests",
+    "scripts",
+    "corpus",
+    "eval",
+    "docs",
+    "README.md",
+    "pyproject.toml",
+    ".env.example",
+)
 IGNORED = shutil.ignore_patterns("__pycache__", "*.pyc", ".pytest_cache", "runs", "mutants")
 PYTEST = ("-m", "pytest", "tests/unit", "-x", "-q", "-p", "no:randomly", "-p", "no:cacheprovider")
 
