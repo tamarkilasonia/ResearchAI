@@ -38,6 +38,7 @@ class MemoryRuns:
     async def get(self, run_id: str) -> RunRecord | None:
         return self.records.get(run_id)
 
+    
     async def interrupt_unfinished(self) -> int:
         unfinished = [r.id for r in self.records.values() if r.status in ("queued", "running")]
         for run_id in unfinished:
